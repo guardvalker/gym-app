@@ -534,6 +534,9 @@
     margin-top:16px;
   }
   .modal-actions-right{ display:flex; gap:8px; }
+  .whatsnew-version{ font-size:12.5px; color:var(--text-dim); margin-bottom:12px; }
+  .whatsnew-list{ margin:0; padding:0 0 0 18px; display:flex; flex-direction:column; gap:8px; }
+  .whatsnew-list li{ font-size:13.5px; color:var(--text); line-height:1.4; }
 </style>
 </head>
 <body>
@@ -671,6 +674,24 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- What's new modal -->
+<div class="modal-overlay hidden" id="whatsnewOverlay">
+  <div class="modal-sheet" style="max-width:420px;">
+    <div class="modal-head">
+      <div class="modal-title">Se actualizó la app</div>
+      <button class="icon-btn" id="whatsnewClose">✕</button>
+    </div>
+    <div class="whatsnew-version">versión <span id="whatsnewVersionNum"></span></div>
+    <ul class="whatsnew-list" id="whatsnewList"></ul>
+    <div class="modal-actions">
+      <div></div>
+      <div class="modal-actions-right">
+        <button class="btn-primary" id="whatsnewOk">Entendido</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Exercise editor modal -->
 <div class="modal-overlay hidden" id="editorOverlay">
   <div class="modal-sheet">
@@ -730,6 +751,15 @@
   "use strict";
 
   var STORAGE_KEY = "gymTrackerData_v4";
+
+  // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
+  var APP_VERSION = "1.1.0";
+  var CHANGELOG = {
+    "1.1.0": [
+      "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
+    ]
+  };
+  var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
 
   function slug(name){
     return name.toLowerCase()
@@ -1137,6 +1167,29 @@
     if(ev.target === this) closeEditor();
   });
 
+  // ---------- Novedades de la app ----------
+  function closeWhatsnew(){
+    document.getElementById("whatsnewOverlay").classList.add("hidden");
+  }
+  document.getElementById("whatsnewClose").addEventListener("click", closeWhatsnew);
+  document.getElementById("whatsnewOk").addEventListener("click", closeWhatsnew);
+  document.getElementById("whatsnewOverlay").addEventListener("click", function(ev){
+    if(ev.target === this) closeWhatsnew();
+  });
+  function checkForUpdate(){
+    var seen = null;
+    try{ seen = localStorage.getItem(SEEN_VERSION_KEY); }catch(e){}
+    if(seen === APP_VERSION) return;
+    var isBrandNewUser = seen === null && data.logs.length === 0;
+    if(!isBrandNewUser){
+      var entries = CHANGELOG[APP_VERSION] || [];
+      document.getElementById("whatsnewVersionNum").textContent = APP_VERSION;
+      document.getElementById("whatsnewList").innerHTML = entries.map(function(t){ return "<li>" + t + "</li>"; }).join("");
+      document.getElementById("whatsnewOverlay").classList.remove("hidden");
+    }
+    try{ localStorage.setItem(SEEN_VERSION_KEY, APP_VERSION); }catch(e){}
+  }
+
   // ---------- Rendering ----------
 
   function renderTabs(){
@@ -1477,6 +1530,7 @@
     activeExerciseId = exs.length ? exs[0].id : null;
     renderTabs();
     renderExercises();
+    checkForUpdate();
   })();
 })();
 
