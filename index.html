@@ -500,7 +500,11 @@
     display:flex;
     overflow-x:auto;
     scroll-snap-type:x mandatory;
-    -webkit-overflow-scrolling:touch;
+    /* sin -webkit-overflow-scrolling:touch a propósito: ese "momentum"
+       hace que el dedo suelte y el carrusel siga deslizando/rebotando
+       antes de asentar en la página — sin eso, el swipe frena y encastra
+       en el ejercicio más cerca de donde soltaste el dedo, mucho más
+       directo/instantáneo. */
     margin-bottom:8px;
   }
   .ex-carousel.hidden{ display:none; }
@@ -920,7 +924,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.2";
+  var APP_VERSION = "1.7.3";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -986,6 +990,10 @@
     "1.7.2": [
       "El deslizamiento entre ejercicios (al tocar la guía numerada) es más rápido y directo, en vez del salto lento de antes.",
       "El número de la guía y el cuerpo de arriba ahora cambian más rápido al deslizar el dedo entre ejercicios."
+    ],
+    "1.7.3": [
+      "Tocar un número de la guía ahora salta al instante a ese ejercicio, sin animación de deslizamiento.",
+      "Deslizar el dedo entre ejercicios es más directo (sacamos el rebote/inercia que hacía que siguiera moviéndose solo después de soltar el dedo), y el número de la guía cambia de color apenas el deslizamiento termina, no medio segundo después."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1975,32 +1983,12 @@
     });
   }
 
-  // Scroll horizontal propio y rápido (~140ms) en vez del scrollIntoView
-  // nativo: el "smooth" del navegador tiene una duración fija que no se
-  // puede acortar y se sentía lento al tocar la guía numerada.
-  function fastScrollTo(el, targetLeft){
-    var startLeft = el.scrollLeft;
-    var delta = targetLeft - startLeft;
-    if(Math.abs(delta) < 1) return;
-    var duration = 140;
-    var start = null;
-    function step(ts){
-      if(start === null) start = ts;
-      var t = Math.min(1, (ts - start) / duration);
-      var eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-      el.scrollLeft = startLeft + delta * eased;
-      if(t < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-
-  function goToExercisePage(id, smooth){
+  // Tocar la guía numerada salta al instante al ejercicio (sin animación
+  // de scroll) — es un salto directo, no un "deslizar hasta ahí".
+  function goToExercisePage(id){
     var carousel = document.getElementById("exCarousel");
     var page = carousel.querySelector('.ex-page[data-ex-id="' + id + '"]');
-    if(page){
-      if(smooth) fastScrollTo(carousel, page.offsetLeft);
-      else page.scrollIntoView({ behavior:"auto", inline:"start", block:"nearest" });
-    }
+    if(page) page.scrollIntoView({ behavior:"auto", inline:"start", block:"nearest" });
     activeExerciseId = id;
     renderDiagram();
     updatePagerActive();
@@ -2042,13 +2030,13 @@
       pbtn.title = e.name;
       pbtn.dataset.exId = e.id;
       pbtn.addEventListener("click", function(){
-        goToExercisePage(e.id, true);
+        goToExercisePage(e.id);
       });
       pager.appendChild(pbtn);
     });
 
     renderDiagram();
-    goToExercisePage(activeExerciseId, false);
+    goToExercisePage(activeExerciseId);
   }
 
   // Mientras el usuario desliza el carrusel a mano (sin tocar la guía
@@ -2057,21 +2045,34 @@
   // vez porque el contenedor #exCarousel no se recrea entre renders.
   (function setupCarouselScrollSync(){
     var carousel = document.getElementById("exCarousel");
+
+    function syncActiveToScroll(){
+      var pages = carousel.querySelectorAll(".ex-page");
+      if(!pages.length || !carousel.clientWidth) return;
+      var idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+      idx = Math.max(0, Math.min(idx, pages.length - 1));
+      var id = pages[idx].dataset.exId;
+      if(id && id !== activeExerciseId){
+        activeExerciseId = id;
+        renderDiagram();
+        updatePagerActive();
+      }
+    }
+
+    // "scrollend" dispara justo cuando el navegador terminó de asentar el
+    // snap — es el momento más temprano posible para actualizar, sin
+    // inventar un tiempo de espera fijo. No todos los navegadores lo
+    // soportan todavía, así que además queda el fallback de "scroll" +
+    // debounce corto de abajo (si "scrollend" ya actualizó, el chequeo
+    // "!== activeExerciseId" evita repetir el trabajo).
+    if("onscrollend" in window){
+      carousel.addEventListener("scrollend", syncActiveToScroll);
+    }
+
     var scrollTimer = null;
     carousel.addEventListener("scroll", function(){
       if(scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(function(){
-        var pages = carousel.querySelectorAll(".ex-page");
-        if(!pages.length || !carousel.clientWidth) return;
-        var idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
-        idx = Math.max(0, Math.min(idx, pages.length - 1));
-        var id = pages[idx].dataset.exId;
-        if(id && id !== activeExerciseId){
-          activeExerciseId = id;
-          renderDiagram();
-          updatePagerActive();
-        }
-      }, 40);
+      scrollTimer = setTimeout(syncActiveToScroll, 30);
     });
   })();
 
