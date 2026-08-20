@@ -867,7 +867,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.4.3";
+  var APP_VERSION = "1.4.4";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -901,6 +901,9 @@
     "1.4.3": [
       "Arreglamos que el botón atrás cerrara la app directamente en vez de volver a los grupos musculares: los pasos de navegación interna ahora usan una URL propia para cada pantalla, que es lo que hace que el celular los reconozca como historial real de la app.",
       "En la pantalla principal, atrás sigue haciendo lo de siempre (salir) — no hay más pantallas propias para volver desde ahí."
+    ],
+    "1.4.4": [
+      "Arreglamos que, después de cerrar una ventana (editar ejercicio, versión, etc.) con atrás, el siguiente atrás igual cerrara la app en vez de ir a los grupos musculares. Cada ventana ahora reserva su lugar en el historial apenas se abre, en vez de intentar reponerlo después — eso es lo que fallaba."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1136,8 +1139,9 @@
     sheet.appendChild(actions);
     overlay.appendChild(sheet);
     document.body.appendChild(overlay);
+    pushModalState();
 
-    function close(){ document.body.removeChild(overlay); }
+    function close(){ history.back(); }
     cancelBtn.addEventListener("click", close);
     overlay.addEventListener("click", function(ev){ if(ev.target === overlay) close(); });
     okBtn.addEventListener("click", function(){ close(); onConfirm(); });
@@ -1283,10 +1287,11 @@
     setEditorTier("primary");
     renderEditorBody();
     document.getElementById("editorOverlay").classList.remove("hidden");
+    pushModalState();
   }
 
   function closeEditor(){
-    document.getElementById("editorOverlay").classList.add("hidden");
+    history.back();
   }
 
   function saveEditor(){
@@ -1345,7 +1350,7 @@
 
   // ---------- Novedades de la app ----------
   function closeWhatsnew(){
-    document.getElementById("whatsnewOverlay").classList.add("hidden");
+    history.back();
   }
   document.getElementById("whatsnewClose").addEventListener("click", closeWhatsnew);
   document.getElementById("whatsnewOk").addEventListener("click", closeWhatsnew);
@@ -1362,6 +1367,7 @@
       document.getElementById("whatsnewVersionNum").textContent = APP_VERSION;
       document.getElementById("whatsnewList").innerHTML = entries.map(function(t){ return "<li>" + t + "</li>"; }).join("");
       document.getElementById("whatsnewOverlay").classList.remove("hidden");
+      pushModalState();
     }
     try{ localStorage.setItem(SEEN_VERSION_KEY, APP_VERSION); }catch(e){}
   }
@@ -1379,10 +1385,11 @@
   function openVersionModal(){
     renderVersionHistory();
     document.getElementById("versionOverlay").classList.remove("hidden");
+    pushModalState();
   }
 
   function closeVersionModal(){
-    document.getElementById("versionOverlay").classList.add("hidden");
+    history.back();
   }
 
   document.getElementById("titleBtn").addEventListener("click", openVersionModal);
@@ -1838,29 +1845,36 @@
   // (tocando su tarjeta) o al historial (ícono del header).
   //
   // El botón "atrás" del sistema (o el gesto) navega por acá en vez de
-  // cerrar la app directamente: cada vez que se entra a "day", "history" o
-  // se abre un modal se apila un estado con una URL propia (necesario:
-  // apilar con la URL vacía/repetida hace que algunos navegadores en
-  // Android no lo cuenten como una entrada real de historial, y ahí es
-  // donde "atrás" terminaba cerrando la app aunque hubiera algo para
-  // deshacer). popstate es la única fuente de verdad para deshacer esos
-  // pasos — los botones "‹" de la UI llaman a history.back() en vez de
-  // tocar currentView directamente.
+  // cerrar la app directamente. Cada acción hacia adelante (entrar a "day"
+  // o "history", o abrir cualquier modal) apila un estado CON UNA URL
+  // PROPIA en ese mismo momento — a propósito, nunca desde adentro del
+  // handler de popstate: en Android, apilar de forma reactiva en respuesta
+  // a un back ya andado (aunque sea para "reponer" un nivel) no siempre
+  // queda bien contado en el historial nativo, y ahí es donde "atrás"
+  // terminaba cerrando la app en vez de agarrar el próximo nivel. Con todo
+  // apilado de antemano, popstate queda puramente pasivo: solo mira qué hay
+  // que deshacer, nunca apila nada.
   //
-  // Reglas del handler, en orden:
-  // 1. Si hay un modal abierto (editor, versión, novedades, o el confirm
-  //    dinámico de showConfirm), atrás lo cierra a él primero — sin cambiar
-  //    de vista de fondo — y repone el estado consumido para no perder
-  //    profundidad (si no, el siguiente atrás saltearía un nivel de más).
-  // 2. Si no hay modal, cambia de vista según el estado al que se navegó.
+  // Por eso los botones "‹"/cerrar de cada modal y pantalla llaman a
+  // history.back() en vez de esconder directamente — así siempre consumen
+  // el estado que se apiló al abrir, y el próximo atrás (o hardware-back)
+  // sigue estando sincronizado.
   //
-  // Estando en "groups" (la pantalla principal) no se apila nada extra: no
-  // hay más historial propio para deshacer ahí, así que un atrás adicional
-  // queda a cargo del navegador/SO — igual que en cualquier otra app.
+  // Estando en "groups" (la pantalla principal) no se apila nada: no hay
+  // historial propio para deshacer ahí, así que un atrás adicional queda a
+  // cargo del navegador/SO, como en cualquier otra app.
   function pushViewState(view){
     try{ history.pushState({ gymView: view }, "", "#" + view); }catch(e){}
   }
 
+  // Se apila al ABRIR un modal (no al cerrarlo) — ver comentario de arriba.
+  function pushModalState(){
+    try{ history.pushState({ gymView: currentView, modal: true }, "", "#modal"); }catch(e){}
+  }
+
+  // Cierra el modal más reciente (el último en orden de documento — los
+  // dinámicos de showConfirm se appendean al final de <body>, así quedan
+  // arriba de cualquier modal "fijo" ya abierto, como el editor).
   function closeTopModal(){
     var modals = document.querySelectorAll(".modal-overlay:not(.hidden)");
     var el = modals[modals.length - 1];
@@ -1871,10 +1885,7 @@
   }
 
   window.addEventListener("popstate", function(ev){
-    if(closeTopModal()){
-      pushViewState(currentView);
-      return;
-    }
+    if(closeTopModal()) return;
     currentView = (ev.state && ev.state.gymView) || "groups";
     showView();
   });
