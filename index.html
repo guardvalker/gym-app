@@ -161,7 +161,20 @@
     align-items:center;
     gap:8px;
   }
-  #trainView .body-card{ padding:9px; margin-bottom:8px; gap:5px; border-top:3px solid var(--current-group-color); }
+  /* En trainView el cuerpo pasa a la derecha y la info (nombre + niveles)
+     a la izquierda, en una columna de ancho fijo — así el módulo no cambia
+     de alto según cuánto texto tenga cada ejercicio (antes el texto iba
+     abajo del cuerpo y variaba la altura de la tarjeta según cuántos
+     niveles tuviera asignados cada ejercicio). */
+  #trainView .body-card{
+    padding:9px;
+    margin-bottom:8px;
+    border-top:3px solid var(--current-group-color);
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
   #trainView .back-btn{ color:var(--current-group-color); }
   .bodies{
     display:flex;
@@ -218,25 +231,38 @@
     text-align:center;
     min-height:44px;
   }
-  #trainView .body-caption{ min-height:26px; }
+  /* ancho fijo: el texto nunca empuja ni achica el diagrama de al lado */
+  #trainView .body-caption{
+    min-height:0;
+    text-align:left;
+    flex:0 0 116px;
+    width:116px;
+  }
   .body-ex-name{
     font-size:14.5px;
     font-weight:700;
   }
+  #trainView .body-ex-name{ font-size:13px; line-height:1.25; }
   .body-muscles{
     font-size:12px;
     color:var(--text-dim);
     margin-top:3px;
     line-height:1.5;
   }
-  /* Principal/Secundario/Terciario van de costado en una sola línea, cada
-     palabra en el color de su nivel — reemplaza los cuadraditos de color
-     que había debajo del cuerpo, que además ocupaban una fila entera. */
+  /* Principal/Secundario/Terciario van siempre en la misma fila cada uno
+     (principal 1ra, secundario 2da, terciario 3ra), con un guion cuando un
+     ejercicio no tiene ese nivel asignado — así terciario nunca "salta" de
+     posición según cuántos niveles tenga cada ejercicio. La palabra de cada
+     nivel va en su color, reemplazando los cuadraditos que había antes. */
+  .tier-row{
+    font-size:11px;
+    line-height:1.3;
+  }
+  .tier-row + .tier-row{ margin-top:3px; }
   .tier-word{ font-weight:800; }
   .tier-word.primary{ color:var(--current-group-color); }
   .tier-word.secondary{ color:color-mix(in srgb, var(--current-group-color) 70%, var(--text-dim)); }
   .tier-word.tertiary{ color:color-mix(in srgb, var(--current-group-color) 42%, var(--text-dim)); }
-  .tier-sep{ color:var(--border); margin:0 1px; }
 
   /* ---------- Home: grupos musculares ---------- */
   .group-grid{
@@ -741,6 +767,11 @@
   </div>
 
   <div class="body-card">
+    <div class="body-caption">
+      <div class="body-ex-name" id="bodyExName">Tocá un ejercicio</div>
+      <div class="body-muscles" id="bodyMuscles">para ver qué músculos trabaja</div>
+    </div>
+
     <div class="bodies" id="mainBodies">
       <div class="body-col">
         <span class="body-label">Frente</span>
@@ -750,11 +781,6 @@
         <span class="body-label">Espalda</span>
         <div id="mainBodyBackMount"></div>
       </div>
-    </div>
-
-    <div class="body-caption">
-      <div class="body-ex-name" id="bodyExName">Tocá un ejercicio</div>
-      <div class="body-muscles" id="bodyMuscles">para ver qué músculos trabaja</div>
     </div>
   </div>
 
@@ -874,7 +900,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.6.0";
+  var APP_VERSION = "1.6.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -925,6 +951,9 @@
       "El color de los músculos resaltados y de los acentos de la pantalla ahora es el mismo de la tarjeta del grupo en la home (verde para espalda, naranja para pecho, etc.), y usamos tonos más legibles que antes no se distinguían bien del fondo.",
       "Sacamos las tarjetitas chicas para pasar de ejercicio: ahora se desliza el dedo directamente sobre el ejercicio para pasar al siguiente, y la guía numerada de abajo no se mueve — así no se repite el nombre dos veces.",
       "Sacamos el subtítulo con el nombre del día entre el cuerpo y el ejercicio, para aprovechar mejor el espacio."
+    ],
+    "1.6.1": [
+      "El cuerpo pasa a la derecha y el nombre + Principal/Secundario/Terciario a la izquierda, en una columna de ancho fijo: antes esa tarjeta cambiaba de alto según cuántos niveles tuviera cada ejercicio (y terciario \"saltaba\" de lugar); ahora las 3 filas están siempre en el mismo orden, con un guion cuando algún ejercicio no tiene ese nivel asignado, y la tarjeta mide siempre lo mismo."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1252,14 +1281,17 @@
   }
 
   function musclesCaptionHTML(muscles, emptyText){
-    if(!muscles) return emptyText;
-    var parts = [];
-    ["primary","secondary","tertiary"].forEach(function(tier){
-      var ids = muscles[tier] || [];
-      if(!ids.length) return;
-      parts.push('<span class="tier-word ' + tier + '">' + TIER_LABEL[tier] + ':</span> ' + dedupeLabels(ids).join(", "));
-    });
-    return parts.length ? parts.join(' <span class="tier-sep">·</span> ') : emptyText;
+    if(!muscles) return '<div class="tier-row">' + emptyText + '</div>';
+    var m = muscles;
+    var any = (m.primary && m.primary.length) || (m.secondary && m.secondary.length) || (m.tertiary && m.tertiary.length);
+    if(!any) return '<div class="tier-row">' + emptyText + '</div>';
+    // Siempre las 3 filas, en el mismo orden — un guion cuando ese nivel
+    // no tiene músculos, para que terciario nunca cambie de posición.
+    return ["primary","secondary","tertiary"].map(function(tier){
+      var ids = m[tier] || [];
+      var text = ids.length ? dedupeLabels(ids).join(", ") : "—";
+      return '<div class="tier-row ' + tier + '"><span class="tier-word ' + tier + '">' + TIER_LABEL[tier] + ':</span> ' + text + '</div>';
+    }).join("");
   }
 
   function clearZonesIn(rootId){
