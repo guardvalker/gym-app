@@ -232,28 +232,46 @@
   .body-muscles b{ color:var(--text); font-weight:600; }
 
   /* ---------- Home: grupos musculares ---------- */
-  .group-list{ display:flex; flex-direction:column; gap:10px; }
+  .group-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
   .group-card{
     display:flex;
+    flex-direction:column;
     align-items:center;
-    gap:14px;
-    width:100%;
+    gap:6px;
     background:var(--bg-elev);
     border:1px solid var(--border);
     border-radius:var(--radius);
-    padding:10px 16px 10px 10px;
-    text-align:left;
+    padding:16px 10px 14px 10px;
+    text-align:center;
     font-family:inherit;
     cursor:pointer;
   }
-  .group-card:active{ opacity:.85; }
+  .group-card:active{ opacity:.85; transform:scale(.98); }
+  /* la 5ta tarjeta (impar) ocupa el ancho completo, layout horizontal para
+     aprovechar el espacio en vez de quedar sola y angosta en el grid */
+  .group-card.full{
+    grid-column:1 / -1;
+    flex-direction:row;
+    justify-content:flex-start;
+    min-height:0;
+    padding:14px 20px;
+    text-align:left;
+  }
   .group-card-icon{
-    flex:0 0 auto;
-    width:56px;
-    height:56px;
+    width:100%;
+    height:140px;
     display:flex;
     align-items:center;
     justify-content:center;
+  }
+  .group-card.full .group-card-icon{
+    width:70px;
+    height:110px;
+    flex:0 0 auto;
   }
   .group-icon-svg{ width:100%; height:100%; display:block; }
   .bm-muscle{
@@ -262,21 +280,25 @@
     stroke-width:.15;
     stroke-linejoin:round;
   }
-  .group-card-body{ flex:1; min-width:0; }
+  .group-card-body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+  }
+  .group-card.full .group-card-body{ align-items:flex-start; margin-left:16px; }
   .group-card-label{
-    font-size:15.5px;
-    font-weight:700;
+    font-size:15px;
+    font-weight:800;
+    line-height:1.2;
     color:var(--text);
   }
   .group-card-count{
-    font-size:12px;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
     color:var(--text-dim);
-    margin-top:2px;
-  }
-  .group-card-chevron{
-    flex:0 0 auto;
-    color:var(--text-dim);
-    font-size:18px;
   }
   .back-row{
     display:flex;
@@ -625,7 +647,7 @@
 </header>
 
 <main id="groupsView">
-  <div class="group-list" id="groupCards"></div>
+  <div class="group-grid" id="groupCards"></div>
 </main>
 
 <main id="trainView" class="hidden">
@@ -813,7 +835,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.3.0";
+  var APP_VERSION = "1.3.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -825,6 +847,9 @@
     "1.3.0": [
       "Los íconos de las tarjetas de grupo ahora son cuerpos anatómicos reales (librería body-muscles), de cuerpo entero, en vez del dibujo simplificado recortado de la versión anterior.",
       "El día \"Espalda baja\" pasó a ser \"Core y Cardio\" (plancha, crunch, elevación de piernas, plancha lateral y cardio), con su ícono resaltando el abdomen."
+    ],
+    "1.3.1": [
+      "Rediseñamos la pantalla de inicio: en vez de una lista angosta, ahora es una grilla de 2 columnas con tarjetas más grandes e íconos más grandes, más fáciles de distinguir."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -939,8 +964,12 @@
     ]
   };
 
+  // "short" es el texto que se ve en la tarjeta de la home (angosta, 2
+  // columnas) cuando difiere del label completo que se usa en el título del
+  // día, el historial y demás — solo "Espalda alta y Bíceps" es demasiado
+  // largo para esa tarjeta.
   var DAYS = [
-    { id:"espalda-biceps", label:"Espalda alta y Bíceps" },
+    { id:"espalda-biceps", label:"Espalda alta y Bíceps", short:"Espalda y Bíceps" },
     { id:"pecho-triceps",  label:"Pecho y Tríceps" },
     { id:"piernas",        label:"Piernas" },
     { id:"hombros",        label:"Hombros" },
@@ -1445,12 +1474,13 @@
   function renderGroupsView(){
     var wrap = document.getElementById("groupCards");
     wrap.innerHTML = "";
-    DAYS.forEach(function(d){
+    DAYS.forEach(function(d, idx){
       var count = (data.templates[d.id] || []).length;
+      var isOddLast = idx === DAYS.length - 1 && DAYS.length % 2 === 1;
 
       var card = document.createElement("button");
       card.type = "button";
-      card.className = "group-card";
+      card.className = "group-card" + (isOddLast ? " full" : "");
       card.addEventListener("click", function(){ goToDay(d.id); });
 
       var iconWrap = document.createElement("div");
@@ -1462,20 +1492,15 @@
       body.className = "group-card-body";
       var label = document.createElement("div");
       label.className = "group-card-label";
-      label.textContent = d.label;
+      label.textContent = d.short || d.label;
       var countEl = document.createElement("div");
       countEl.className = "group-card-count";
       countEl.textContent = count + (count === 1 ? " ejercicio" : " ejercicios");
       body.appendChild(label);
       body.appendChild(countEl);
 
-      var chevron = document.createElement("div");
-      chevron.className = "group-card-chevron";
-      chevron.textContent = "›";
-
       card.appendChild(iconWrap);
       card.appendChild(body);
-      card.appendChild(chevron);
       wrap.appendChild(card);
     });
   }
