@@ -920,7 +920,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.1";
+  var APP_VERSION = "1.7.2";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -982,6 +982,10 @@
     ],
     "1.7.1": [
       "El número marcado en las ruedas de series, peso y repeticiones ahora se ve en el color del grupo muscular del día, para que contraste mejor con los números de arriba y abajo."
+    ],
+    "1.7.2": [
+      "El deslizamiento entre ejercicios (al tocar la guía numerada) es más rápido y directo, en vez del salto lento de antes.",
+      "El número de la guía y el cuerpo de arriba ahora cambian más rápido al deslizar el dedo entre ejercicios."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1971,10 +1975,32 @@
     });
   }
 
+  // Scroll horizontal propio y rápido (~140ms) en vez del scrollIntoView
+  // nativo: el "smooth" del navegador tiene una duración fija que no se
+  // puede acortar y se sentía lento al tocar la guía numerada.
+  function fastScrollTo(el, targetLeft){
+    var startLeft = el.scrollLeft;
+    var delta = targetLeft - startLeft;
+    if(Math.abs(delta) < 1) return;
+    var duration = 140;
+    var start = null;
+    function step(ts){
+      if(start === null) start = ts;
+      var t = Math.min(1, (ts - start) / duration);
+      var eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      el.scrollLeft = startLeft + delta * eased;
+      if(t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
   function goToExercisePage(id, smooth){
     var carousel = document.getElementById("exCarousel");
     var page = carousel.querySelector('.ex-page[data-ex-id="' + id + '"]');
-    if(page) page.scrollIntoView({ behavior: smooth ? "smooth" : "auto", inline:"start", block:"nearest" });
+    if(page){
+      if(smooth) fastScrollTo(carousel, page.offsetLeft);
+      else page.scrollIntoView({ behavior:"auto", inline:"start", block:"nearest" });
+    }
     activeExerciseId = id;
     renderDiagram();
     updatePagerActive();
@@ -2045,7 +2071,7 @@
           renderDiagram();
           updatePagerActive();
         }
-      }, 100);
+      }, 40);
     });
   })();
 
