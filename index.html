@@ -513,10 +513,20 @@
     display:flex;
     flex-wrap:nowrap;
     gap:6px;
-    justify-content:center;
+    /* flex-start por defecto a propósito: con justify-content:center Y
+       overflow-x:auto a la vez, cuando el contenido casi no desborda el
+       navegador arranca el scroll ANTES del primer botón (empieza en
+       negativo) — el primer número queda recortado para siempre y nunca
+       se puede scrollear lo suficiente para llegar a tocarlo del todo. Con
+       flex-start, scrollLeft:0 coincide siempre con el borde real del
+       primer botón. Solo centramos (clase .fits) cuando entran todos los
+       números sin necesidad de scroll — ver renderExercises(). */
+    justify-content:flex-start;
+    padding:0 1px; /* que el círculo no quede pegado al borde recortable */
     overflow-x:auto;
     scrollbar-width:none;
   }
+  .ex-pager.fits{ justify-content:center; }
   .ex-pager::-webkit-scrollbar{ display:none; }
   .ex-pager.hidden{ display:none; }
   .add-ex-icon{
@@ -940,7 +950,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.8";
+  var APP_VERSION = "1.7.9";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1026,6 +1036,9 @@
     ],
     "1.7.8": [
       "Con más de 9 ejercicios en un día, la guía numerada ya no pasaba a una segunda fila: ahora se desliza de costado como los ejercicios, siempre en una sola línea, y el botón + queda siempre fijo en su lugar. Al cambiar de ejercicio deslizando, la guía se sigue sola hasta mostrar el número activo."
+    ],
+    "1.7.9": [
+      "Arreglamos que el primer y el último número de la guía quedaran recortados y que a veces no se pudiera llegar a tocar el 1: el límite del deslizamiento estaba mal calculado. Ahora, si entran todos los números sin scroll quedan centrados como siempre; si no entran, arrancan pegados a la izquierda para que se pueda llegar a todos, sin recortes."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2073,6 +2086,10 @@
       });
       pager.appendChild(pbtn);
     });
+    // si entran todos los números sin desbordar, se centran (más prolijo);
+    // si no, quedan pegados a la izquierda para que el scroll arranque
+    // justo en el primer botón, sin recortarlo (ver comentario en CSS).
+    pager.classList.toggle("fits", pager.scrollWidth <= pager.clientWidth);
 
     renderDiagram();
     goToExercisePage(activeExerciseId);
