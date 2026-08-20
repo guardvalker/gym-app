@@ -43,6 +43,12 @@
     --grad-primary-b:#d20f39;
     --grad-secondary-a:#ffb088;
     --grad-secondary-b:#f2795f;
+    /* un color por grupo muscular, para el ícono corporal de cada tarjeta de la home */
+    --group-pecho:#fe640b;
+    --group-espalda:#40a02b;
+    --group-piernas:#e64553;
+    --group-hombros:#df8e1d;
+    --group-espaldabaja:#dc8a78;
   }
   :root[data-theme="dark"]{
     /* Catppuccin Mocha-inspired (dark), no blue */
@@ -72,6 +78,11 @@
     --grad-primary-b:#f38ba8;
     --grad-secondary-a:#f9c8a0;
     --grad-secondary-b:#f2a4ab;
+    --group-pecho:#fab387;
+    --group-espalda:#a6e3a1;
+    --group-piernas:#eba0ac;
+    --group-hombros:#f9e2af;
+    --group-espaldabaja:#f5e0dc;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
@@ -88,7 +99,7 @@
     position:sticky; top:0; z-index:20;
     background:linear-gradient(180deg, var(--top-wash), var(--bg));
     transition:background-color .2s;
-    padding:14px 16px 0 16px;
+    padding:14px 16px;
     border-bottom:1px solid var(--border);
   }
   h1{
@@ -121,31 +132,6 @@
     cursor:pointer;
   }
   .theme-toggle:active{ opacity:.8; }
-  .tabs{
-    display:flex;
-    gap:6px;
-    overflow-x:auto;
-    padding-bottom:10px;
-    scrollbar-width:none;
-  }
-  .tabs::-webkit-scrollbar{display:none;}
-  .tab-btn{
-    flex:0 0 auto;
-    padding:9px 14px;
-    border-radius:999px;
-    border:1px solid var(--border);
-    background:var(--bg-elev);
-    color:var(--text-dim);
-    font-size:13px;
-    font-weight:600;
-    white-space:nowrap;
-    cursor:pointer;
-  }
-  .tab-btn.active{
-    background:var(--accent-grad);
-    border-color:transparent;
-    color:#fff;
-  }
   main{ padding:16px; max-width:640px; margin:0 auto; }
   .day-title{
     font-size:15px;
@@ -244,6 +230,67 @@
     line-height:1.5;
   }
   .body-muscles b{ color:var(--text); font-weight:600; }
+
+  /* ---------- Home: grupos musculares ---------- */
+  .group-list{ display:flex; flex-direction:column; gap:10px; }
+  .group-card{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+    background:var(--bg-elev);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:10px 16px 10px 10px;
+    text-align:left;
+    font-family:inherit;
+    cursor:pointer;
+  }
+  .group-card:active{ opacity:.85; }
+  .group-card-icon{
+    flex:0 0 auto;
+    width:56px;
+    height:56px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .group-icon-svg{ width:100%; height:100%; display:block; }
+  .group-card-body{ flex:1; min-width:0; }
+  .group-card-label{
+    font-size:15.5px;
+    font-weight:700;
+    color:var(--text);
+  }
+  .group-card-count{
+    font-size:12px;
+    color:var(--text-dim);
+    margin-top:2px;
+  }
+  .group-card-chevron{
+    flex:0 0 auto;
+    color:var(--text-dim);
+    font-size:18px;
+  }
+  .back-row{
+    display:flex;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  .back-btn{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:none;
+    border:none;
+    color:var(--text);
+    font-family:inherit;
+    font-size:14.5px;
+    font-weight:600;
+    padding:6px 4px;
+    cursor:pointer;
+  }
+  .back-btn:active{ opacity:.7; }
 
   .card{
     background:var(--bg-elev);
@@ -569,10 +616,17 @@
     <h1>🏋️ Mi Rutina</h1>
     <button class="theme-toggle" id="themeToggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro">🌙</button>
   </div>
-  <div class="tabs" id="dayTabs"></div>
 </header>
 
-<main id="trainView">
+<main id="groupsView">
+  <div class="group-list" id="groupCards"></div>
+</main>
+
+<main id="trainView" class="hidden">
+
+  <div class="back-row">
+    <button class="back-btn" id="trainBackBtn">‹ Grupos musculares</button>
+  </div>
 
   <div class="body-card">
     <div class="bodies" id="mainBodies">
@@ -753,10 +807,14 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.1.0";
+  var APP_VERSION = "1.2.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
+    ],
+    "1.2.0": [
+      "Nueva pantalla de inicio: en vez de la barra de pestañas de arriba, ahora \"Entrenar\" muestra los 5 grupos musculares en tarjetas, cada una con un ícono del cuerpo (mismo dibujo que ya usaba la app) resaltando esa zona en su propio color.",
+      "Tocá una tarjeta para entrar a los ejercicios de ese grupo; \"‹ Grupos musculares\" te vuelve a la pantalla de inicio."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -907,7 +965,7 @@
   }
 
   var currentDay = DAYS[0].id;
-  var currentView = "train";
+  var currentView = "groups";
   var activeExerciseId = null;
 
   var toastTimer = null;
@@ -1192,21 +1250,79 @@
 
   // ---------- Rendering ----------
 
-  function renderTabs(){
-    var wrap = document.getElementById("dayTabs");
+  // ---------- Home: tarjetas de grupo muscular ----------
+  // Cada grupo recorta el mismo cuerpo (frente o espalda) usado en el
+  // diagrama principal a la zona que le corresponde (viewBox angosto) y
+  // colorea sus músculos en el color propio del grupo — así el ícono sigue
+  // siendo el mismo dibujo anatómico de toda la app, no un ícono genérico.
+  var GROUP_ICONS = {
+    "pecho-triceps":  { view:"front", zones:["chest"], viewBox:"0 20 140 110", color:"var(--group-pecho)" },
+    "espalda-biceps": { view:"back",  zones:["lats","traps"], viewBox:"0 18 140 120", color:"var(--group-espalda)" },
+    "piernas":        { view:"front", zones:["quads","quads2","calves-f","calves-f2"], viewBox:"0 118 140 195", color:"var(--group-piernas)" },
+    "hombros":        { view:"front", zones:["shoulders-f","shoulders-f2"], viewBox:"0 20 140 110", color:"var(--group-hombros)" },
+    "espalda-baja":   { view:"back",  zones:["lower-back"], viewBox:"0 95 140 80", color:"var(--group-espaldabaja)" }
+  };
+
+  function buildGroupIcon(day){
+    var cfg = GROUP_ICONS[day.id];
+    if(!cfg) return null;
+    var src = document.getElementById(cfg.view === "front" ? "mainBodyFrontSvg" : "mainBodyBackSvg");
+    var suffix = "-icon-" + day.id;
+    var clone = cloneBodyWithSuffix(src, suffix);
+    clone.classList.add("group-icon-svg");
+    clone.setAttribute("viewBox", cfg.viewBox);
+    clone.removeAttribute("width");
+    clone.removeAttribute("height");
+    clone.querySelectorAll(".zone").forEach(function(el){
+      var baseId = el.id.slice(0, -suffix.length);
+      if(cfg.zones.indexOf(baseId) !== -1) el.style.fill = cfg.color;
+    });
+    return clone;
+  }
+
+  function goToDay(dayId){
+    currentDay = dayId;
+    var exs = data.templates[currentDay] || [];
+    activeExerciseId = exs.length ? exs[0].id : null;
+    currentView = "day";
+    showView();
+  }
+
+  function renderGroupsView(){
+    var wrap = document.getElementById("groupCards");
     wrap.innerHTML = "";
     DAYS.forEach(function(d){
-      var btn = document.createElement("button");
-      btn.className = "tab-btn" + (d.id === currentDay ? " active" : "");
-      btn.textContent = d.label;
-      btn.addEventListener("click", function(){
-        currentDay = d.id;
-        var exs = data.templates[currentDay] || [];
-        activeExerciseId = exs.length ? exs[0].id : null;
-        renderTabs();
-        renderExercises();
-      });
-      wrap.appendChild(btn);
+      var count = (data.templates[d.id] || []).length;
+
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "group-card";
+      card.addEventListener("click", function(){ goToDay(d.id); });
+
+      var iconWrap = document.createElement("div");
+      iconWrap.className = "group-card-icon";
+      var icon = buildGroupIcon(d);
+      if(icon) iconWrap.appendChild(icon);
+
+      var body = document.createElement("div");
+      body.className = "group-card-body";
+      var label = document.createElement("div");
+      label.className = "group-card-label";
+      label.textContent = d.label;
+      var countEl = document.createElement("div");
+      countEl.className = "group-card-count";
+      countEl.textContent = count + (count === 1 ? " ejercicio" : " ejercicios");
+      body.appendChild(label);
+      body.appendChild(countEl);
+
+      var chevron = document.createElement("div");
+      chevron.className = "group-card-chevron";
+      chevron.textContent = "›";
+
+      card.appendChild(iconWrap);
+      card.appendChild(body);
+      card.appendChild(chevron);
+      wrap.appendChild(card);
     });
   }
 
@@ -1435,22 +1551,36 @@
   }
 
   // ---------- Nav ----------
+  // currentView: "groups" (home, tarjetas de grupo) | "day" (ejercicios del
+  // grupo elegido) | "history". El tab "Entrenar" siempre vuelve a "groups"
+  // — si ya estabas dentro de un día, tocarlo de nuevo te saca afuera, igual
+  // que "volver al inicio" tocando un tab ya activo en cualquier app con tabs.
+
+  function showView(){
+    document.getElementById("groupsView").classList.toggle("hidden", currentView !== "groups");
+    document.getElementById("trainView").classList.toggle("hidden", currentView !== "day");
+    document.getElementById("historyView").classList.toggle("hidden", currentView !== "history");
+    document.getElementById("navTrain").classList.toggle("active", currentView !== "history");
+    document.getElementById("navHistory").classList.toggle("active", currentView === "history");
+
+    if(currentView === "groups") renderGroupsView();
+    else if(currentView === "day") renderExercises();
+    else if(currentView === "history") renderHistory();
+  }
 
   document.getElementById("navTrain").addEventListener("click", function(){
-    currentView = "train";
-    document.getElementById("trainView").classList.remove("hidden");
-    document.getElementById("historyView").classList.add("hidden");
-    document.getElementById("navTrain").classList.add("active");
-    document.getElementById("navHistory").classList.remove("active");
+    currentView = "groups";
+    showView();
   });
 
   document.getElementById("navHistory").addEventListener("click", function(){
     currentView = "history";
-    document.getElementById("trainView").classList.add("hidden");
-    document.getElementById("historyView").classList.remove("hidden");
-    document.getElementById("navHistory").classList.add("active");
-    document.getElementById("navTrain").classList.remove("active");
-    renderHistory();
+    showView();
+  });
+
+  document.getElementById("trainBackBtn").addEventListener("click", function(){
+    currentView = "groups";
+    showView();
   });
 
   // ---------- Export / Import ----------
@@ -1528,8 +1658,7 @@
     buildEditorBodies();
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
-    renderTabs();
-    renderExercises();
+    showView();
     checkForUpdate();
   })();
 })();
