@@ -460,7 +460,7 @@
     font-variant-numeric:tabular-nums;
   }
   .wheel-item.active{
-    color:var(--text);
+    color:var(--current-group-color);
     font-weight:800;
     font-size:17px;
   }
@@ -920,7 +920,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.0";
+  var APP_VERSION = "1.7.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -979,6 +979,9 @@
       "Sacamos \"Intensidad (baja/media/alta)\", que ya había quedado desactualizado: ahora \"Peso\" es directamente los kilos que levantás en ese ejercicio.",
       "Series, peso y repeticiones ahora se cargan con una rueda (como la de un temporizador): deslizás el dedo arriba o abajo hasta el número que querés, en vez de escribirlo o tocar botones.",
       "Los ejercicios que ya tenías cargados con \"Intensidad\" pasan a un peso de arranque (baja→10, media→20, alta→35 kg) para no dejarte el campo vacío — después lo ajustás con la rueda. El historial de entrenamientos ya guardados no se toca, se sigue viendo tal cual quedó guardado en su momento."
+    ],
+    "1.7.1": [
+      "El número marcado en las ruedas de series, peso y repeticiones ahora se ve en el color del grupo muscular del día, para que contraste mejor con los números de arriba y abajo."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
