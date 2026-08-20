@@ -669,7 +669,11 @@
   }
   .toolbar button{
     flex:1;
-    padding:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:10px 6px;
     border-radius:10px;
     border:1px solid var(--border);
     background:var(--bg-elev);
@@ -677,6 +681,111 @@
     font-size:12.5px;
     font-weight:600;
     cursor:pointer;
+  }
+  .toolbar button svg{ flex:0 0 auto; }
+  .toolbar button.active{
+    border-color:var(--accent);
+    color:var(--accent);
+    background:var(--accent-dim);
+  }
+
+  /* ---- Comparativa de registros ---- */
+  .compare-hint{
+    font-size:12.5px;
+    color:var(--text-dim);
+    background:var(--accent-dim);
+    border-radius:10px;
+    padding:9px 12px;
+    margin-bottom:10px;
+  }
+  .log.compare-selectable{ cursor:pointer; }
+  .log.compare-selected{
+    border-color:var(--current-group-color, var(--accent));
+    box-shadow:0 0 0 1px var(--current-group-color, var(--accent)) inset;
+  }
+  .log.compare-disabled{ opacity:.4; pointer-events:none; }
+  .log-select-mark{
+    flex:0 0 auto;
+    width:22px; height:22px;
+    border-radius:999px;
+    border:2px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff;
+  }
+  .log.compare-selected .log-select-mark{
+    border-color:var(--current-group-color, var(--accent));
+    background:var(--current-group-color, var(--accent));
+  }
+  .log-select-mark svg{ display:none; width:13px; height:13px; }
+  .log.compare-selected .log-select-mark svg{ display:block; }
+
+  .compare-bar{
+    position:fixed;
+    left:16px; right:16px;
+    bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+    max-width:608px;
+    margin:0 auto;
+    z-index:25;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--bg-elev);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:10px 12px;
+    box-shadow:0 6px 20px rgba(0,0,0,.25);
+  }
+  .compare-bar-count{ flex:1; font-size:13px; font-weight:600; color:var(--text-dim); text-align:center; }
+  .compare-bar .btn-primary{ padding:10px 14px; font-size:13.5px; }
+  .compare-bar .btn-primary:disabled{ opacity:.45; cursor:default; }
+  .compare-bar .btn-secondary{ padding:10px 14px; font-size:13.5px; }
+
+  .compare-card{
+    background:var(--bg-elev);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px;
+    margin-bottom:12px;
+  }
+  .compare-card-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .compare-ex-name{ font-weight:700; font-size:14.5px; }
+  .compare-delta{
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:11.5px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .compare-delta.up{ background:color-mix(in srgb, var(--group-espalda) 22%, transparent); color:var(--group-espalda); }
+  .compare-delta.down{ background:color-mix(in srgb, var(--danger) 20%, transparent); color:var(--danger); }
+  .compare-delta.flat{ background:var(--bg-elev-2); color:var(--text-dim); }
+  .compare-chart{ display:block; width:100%; height:auto; margin-bottom:6px; }
+  .compare-chart .line{ fill:none; stroke:var(--current-group-color, var(--accent)); stroke-width:2; }
+  .compare-chart .dot{ fill:var(--current-group-color, var(--accent)); }
+  .compare-chart .val{ fill:var(--text); font-size:9px; font-weight:700; }
+  .compare-chart .lbl{ fill:var(--text-dim); font-size:8px; }
+  .compare-rows{ display:flex; flex-wrap:wrap; gap:6px; }
+  .compare-row-chip{
+    display:flex; flex-direction:column; gap:1px;
+    padding:6px 9px;
+    border-radius:10px;
+    background:var(--bg-elev-2);
+    font-size:11.5px;
+    min-width:64px;
+  }
+  .compare-row-chip .d{ color:var(--text-dim); font-size:10px; }
+  .compare-row-chip .w{ font-weight:700; }
+  .compare-note{ font-size:12px; color:var(--text-dim); }
+  .compare-summary{
+    font-size:13px;
+    color:var(--text-dim);
+    margin-bottom:14px;
   }
   .hidden{ display:none !important; }
   .toast{
@@ -851,10 +960,25 @@
     <button class="back-btn" id="historyBackBtn">‹ Grupos musculares</button>
   </div>
   <div class="toolbar">
-    <button id="exportBtn">⭳ Exportar copia</button>
-    <button id="importBtn">⭱ Importar copia</button>
+    <button id="exportBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Exportar</button>
+    <button id="importBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Importar</button>
+    <button id="compareBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M11 18H8a2 2 0 0 1-2-2V9"></path></svg>Comparar</button>
   </div>
+  <div id="compareHint" class="compare-hint hidden">Elegí 2 o más registros del mismo grupo muscular para comparar.</div>
   <div id="historyList"></div>
+</main>
+
+<div class="compare-bar hidden" id="compareBar">
+  <button class="btn-secondary" id="compareCancelBtn" type="button">Cancelar</button>
+  <div class="compare-bar-count" id="compareBarCount">0 elegidos</div>
+  <button class="btn-primary" id="compareGoBtn" type="button" disabled>Ver comparativa</button>
+</div>
+
+<main id="compareView" class="hidden">
+  <div class="back-row">
+    <button class="back-btn" id="compareBackBtn">‹ Historial</button>
+  </div>
+  <div id="compareContent"></div>
 </main>
 
 <input type="file" id="importFile" accept="application/json" class="hidden">
@@ -950,7 +1074,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.9";
+  var APP_VERSION = "1.8.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1039,6 +1163,10 @@
     ],
     "1.7.9": [
       "Arreglamos que el primer y el último número de la guía quedaran recortados y que a veces no se pudiera llegar a tocar el 1: el límite del deslizamiento estaba mal calculado. Ahora, si entran todos los números sin scroll quedan centrados como siempre; si no entran, arrancan pegados a la izquierda para que se pueda llegar a todos, sin recortes."
+    ],
+    "1.8.0": [
+      "Arreglamos los íconos de \"Exportar\"/\"Importar copia\" en el Historial, que se veían rotos en algunos celulares (eran caracteres de flecha, ahora son íconos propios).",
+      "Nuevo botón \"Comparar\" en el Historial: elegí 2 o más registros guardados del mismo grupo muscular y mirá cómo fue cambiando el peso de cada ejercicio entre esas fechas, con un gráfico simple y la diferencia total (+/- kg)."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1314,6 +1442,11 @@
   var currentDay = DAYS[0].id;
   var currentView = "groups";
   var activeExerciseId = null;
+
+  // ---------- Comparativa de registros ----------
+  var compareMode = false;
+  var compareSelection = []; // ids de logs elegidos, todos del mismo dayId
+  var compareLogs = []; // logs efectivamente comparados, seteado al abrir la vista
 
   var toastTimer = null;
   function showToast(msg){
@@ -2290,18 +2423,38 @@
       if(a.date !== b.date) return a.date < b.date ? 1 : -1;
       return b.savedAt - a.savedAt;
     });
+    // En modo comparar, una vez elegido el primer registro, los de otro
+    // grupo muscular quedan deshabilitados: no tiene sentido comparar pesos
+    // entre grupos distintos.
+    var lockedDayId = null;
+    if(compareMode && compareSelection.length > 0){
+      var firstPicked = data.logs.filter(function(l){ return l.id === compareSelection[0]; })[0];
+      lockedDayId = firstPicked ? firstPicked.dayId : null;
+    }
     sorted.forEach(function(log){
       var el = document.createElement("div");
       el.className = "log";
+      var selected = compareMode && compareSelection.indexOf(log.id) !== -1;
+      var disabled = compareMode && lockedDayId && log.dayId !== lockedDayId && !selected;
+      if(compareMode) el.classList.add("compare-selectable");
+      if(selected) el.classList.add("compare-selected");
+      if(disabled) el.classList.add("compare-disabled");
 
       var head = document.createElement("div");
       head.className = "log-head";
+      var rightMark = compareMode
+        ? '<div class="log-select-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>'
+        : '<div class="icon-btn">▾</div>';
       head.innerHTML =
         '<div class="l-left"><div class="log-day">' + log.dayLabel + '</div>' +
         '<div class="log-date">' + fmtDate(log.date) + '</div></div>' +
-        '<div class="icon-btn">▾</div>';
+        rightMark;
       head.addEventListener("click", function(){
-        body.classList.toggle("open");
+        if(compareMode){
+          toggleCompareSelection(log.id);
+        } else {
+          body.classList.toggle("open");
+        }
       });
 
       var body = document.createElement("div");
@@ -2341,11 +2494,208 @@
     });
   }
 
+  // ---------- Comparativa de registros ----------
+  function toggleCompareSelection(id){
+    var idx = compareSelection.indexOf(id);
+    if(idx !== -1) compareSelection.splice(idx, 1);
+    else compareSelection.push(id);
+    renderHistory();
+    updateCompareBar();
+  }
+
+  function updateCompareBar(){
+    var bar = document.getElementById("compareBar");
+    bar.classList.toggle("hidden", !compareMode);
+    document.getElementById("compareBarCount").textContent =
+      compareSelection.length + (compareSelection.length === 1 ? " elegido" : " elegidos");
+    document.getElementById("compareGoBtn").disabled = compareSelection.length < 2;
+  }
+
+  function enterCompareMode(){
+    compareMode = true;
+    compareSelection = [];
+    document.getElementById("compareBtn").classList.add("active");
+    document.getElementById("compareHint").classList.remove("hidden");
+    renderHistory();
+    updateCompareBar();
+  }
+
+  function exitCompareMode(){
+    compareMode = false;
+    compareSelection = [];
+    document.getElementById("compareBtn").classList.remove("active");
+    document.getElementById("compareHint").classList.add("hidden");
+    renderHistory();
+    updateCompareBar();
+  }
+
+  function openCompareView(){
+    if(compareSelection.length < 2) return;
+    compareLogs = data.logs.filter(function(l){ return compareSelection.indexOf(l.id) !== -1; });
+    compareLogs.sort(function(a,b){
+      if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return a.savedAt - b.savedAt;
+    });
+    compareMode = false;
+    compareSelection = [];
+    document.getElementById("compareBtn").classList.remove("active");
+    document.getElementById("compareHint").classList.add("hidden");
+    updateCompareBar();
+    currentView = "compare";
+    pushViewState("compare");
+    showView();
+  }
+
+  function fmtDateShort(iso){
+    var parts = iso.split("-");
+    if(parts.length !== 3) return iso;
+    return parts[2] + "/" + parts[1];
+  }
+
+  function collectCompareExerciseNames(logs){
+    var seen = {};
+    var names = [];
+    logs.forEach(function(log){
+      log.exercises.forEach(function(e){
+        if(!seen[e.name]){ seen[e.name] = true; names.push(e.name); }
+      });
+    });
+    return names;
+  }
+
+  // Mini gráfico de línea (SVG inline, sin librerías) con el peso de un
+  // ejercicio a lo largo de los registros elegidos. Solo se llama con >=2
+  // puntos numéricos (ver renderCompareView).
+  function buildCompareChart(points){
+    var W = 280, H = 90, padX = 22, padY = 18;
+    var weights = points.map(function(p){ return p.weight; });
+    var min = Math.min.apply(null, weights);
+    var max = Math.max.apply(null, weights);
+    if(min === max){ min -= 1; max += 1; } // evita división por cero si el peso no cambió
+    var n = points.length;
+    function px(i){ return n === 1 ? W / 2 : padX + (i / (n - 1)) * (W - padX * 2); }
+    function py(w){ return (H - padY) - ((w - min) / (max - min)) * (H - padY * 2 - 10); }
+
+    var svgns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(svgns, "svg");
+    svg.setAttribute("class", "compare-chart");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+    var pathD = points.map(function(p, i){
+      return (i === 0 ? "M" : "L") + px(i).toFixed(1) + "," + py(p.weight).toFixed(1);
+    }).join(" ");
+    var path = document.createElementNS(svgns, "path");
+    path.setAttribute("class", "line");
+    path.setAttribute("d", pathD);
+    svg.appendChild(path);
+
+    points.forEach(function(p, i){
+      var cx = px(i), cy = py(p.weight);
+      var dot = document.createElementNS(svgns, "circle");
+      dot.setAttribute("class", "dot");
+      dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("r", 3);
+      svg.appendChild(dot);
+
+      var val = document.createElementNS(svgns, "text");
+      val.setAttribute("class", "val");
+      val.setAttribute("x", cx); val.setAttribute("y", Math.max(9, cy - 7));
+      val.setAttribute("text-anchor", "middle");
+      val.textContent = p.weight;
+      svg.appendChild(val);
+
+      var lbl = document.createElementNS(svgns, "text");
+      lbl.setAttribute("class", "lbl");
+      lbl.setAttribute("x", cx); lbl.setAttribute("y", H - 3);
+      lbl.setAttribute("text-anchor", "middle");
+      lbl.textContent = fmtDateShort(p.date);
+      svg.appendChild(lbl);
+    });
+
+    return svg;
+  }
+
+  function renderCompareView(){
+    applyGroupColor(compareLogs.length ? compareLogs[0].dayId : null);
+    var wrap = document.getElementById("compareContent");
+    wrap.innerHTML = "";
+    if(compareLogs.length < 2){
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Elegí al menos 2 registros para comparar.";
+      wrap.appendChild(empty);
+      return;
+    }
+
+    var summary = document.createElement("div");
+    summary.className = "compare-summary";
+    summary.textContent = "Comparando " + compareLogs.length + " registros de " + compareLogs[0].dayLabel +
+      ": " + fmtDate(compareLogs[0].date) + " → " + fmtDate(compareLogs[compareLogs.length - 1].date);
+    wrap.appendChild(summary);
+
+    collectCompareExerciseNames(compareLogs).forEach(function(name){
+      var points = [];
+      compareLogs.forEach(function(log){
+        var e = log.exercises.filter(function(x){ return x.name === name; })[0];
+        if(!e) return;
+        var hasWeight = e.weight !== undefined && e.weight !== null;
+        points.push({
+          date: log.date,
+          series: e.series,
+          reps: e.reps,
+          weight: hasWeight ? e.weight : null,
+          legacyLabel: hasWeight ? null : (LEGACY_INTENSITY_LABEL[e.intensity] || "")
+        });
+      });
+      if(points.length === 0) return;
+
+      var card = document.createElement("div");
+      card.className = "compare-card";
+
+      var numeric = points.filter(function(p){ return p.weight !== null; });
+      var deltaHTML = "";
+      if(numeric.length >= 2){
+        var diff = numeric[numeric.length - 1].weight - numeric[0].weight;
+        var cls = diff > 0 ? "up" : (diff < 0 ? "down" : "flat");
+        var sign = diff > 0 ? "+" : "";
+        deltaHTML = '<div class="compare-delta ' + cls + '">' + sign + diff + " kg</div>";
+      }
+
+      var head = document.createElement("div");
+      head.className = "compare-card-head";
+      head.innerHTML = '<div class="compare-ex-name">' + name + '</div>' + deltaHTML;
+      card.appendChild(head);
+
+      if(numeric.length >= 2){
+        card.appendChild(buildCompareChart(numeric));
+      } else if(points.length > 1){
+        var note = document.createElement("div");
+        note.className = "compare-note";
+        note.textContent = "No hay suficientes registros con peso cargado para graficar la evolución.";
+        card.appendChild(note);
+      }
+
+      var rows = document.createElement("div");
+      rows.className = "compare-rows";
+      points.forEach(function(p){
+        var chip = document.createElement("div");
+        chip.className = "compare-row-chip";
+        var wLabel = p.weight !== null ? (p.weight + " kg") : (p.legacyLabel || "—");
+        chip.innerHTML = '<div class="d">' + fmtDateShort(p.date) + '</div><div class="w">' + wLabel + '</div><div class="d">' + p.series + '×' + p.reps + '</div>';
+        rows.appendChild(chip);
+      });
+      card.appendChild(rows);
+
+      wrap.appendChild(card);
+    });
+  }
+
   // ---------- Nav ----------
   // currentView: "groups" (home, tarjetas de grupo — pantalla raíz) | "day"
-  // (ejercicios del grupo elegido) | "history". Ya no hay barra inferior:
-  // "groups" es siempre lo primero que se ve, y desde ahí se entra a un día
-  // (tocando su tarjeta) o al historial (ícono del header).
+  // (ejercicios del grupo elegido) | "history" | "compare" (elegís 2+
+  // registros del mismo grupo en "history" y "Comparar" te trae acá). Ya no
+  // hay barra inferior: "groups" es siempre lo primero que se ve, y desde
+  // ahí se entra a un día (tocando su tarjeta) o al historial (ícono del
+  // header).
   //
   // El botón "atrás" del sistema (o el gesto) navega por acá en vez de
   // cerrar la app directamente. Cada acción hacia adelante (entrar a "day"
@@ -2394,13 +2744,23 @@
   });
 
   function showView(){
+    // Salir de "history"/"compare" siempre apaga el modo comparar: evita
+    // quedarse con una selección vieja colgada si se vuelve más tarde.
+    if(currentView !== "history" && currentView !== "compare"){
+      compareMode = false;
+      compareSelection = [];
+    }
     document.getElementById("groupsView").classList.toggle("hidden", currentView !== "groups");
     document.getElementById("trainView").classList.toggle("hidden", currentView !== "day");
     document.getElementById("historyView").classList.toggle("hidden", currentView !== "history");
+    document.getElementById("compareView").classList.toggle("hidden", currentView !== "compare");
+    document.getElementById("compareBtn").classList.toggle("active", compareMode);
+    updateCompareBar();
 
     if(currentView === "groups") renderGroupsView();
     else if(currentView === "day") renderExercises();
     else if(currentView === "history") renderHistory();
+    else if(currentView === "compare") renderCompareView();
   }
 
   function openHistory(){
@@ -2412,6 +2772,13 @@
 
   document.getElementById("trainBackBtn").addEventListener("click", function(){ history.back(); });
   document.getElementById("historyBackBtn").addEventListener("click", function(){ history.back(); });
+  document.getElementById("compareBackBtn").addEventListener("click", function(){ history.back(); });
+
+  document.getElementById("compareBtn").addEventListener("click", function(){
+    if(compareMode) exitCompareMode(); else enterCompareMode();
+  });
+  document.getElementById("compareCancelBtn").addEventListener("click", exitCompareMode);
+  document.getElementById("compareGoBtn").addEventListener("click", openCompareView);
 
   // ---------- Export / Import ----------
 
