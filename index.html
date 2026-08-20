@@ -109,6 +109,7 @@
     display:flex;
     align-items:center;
     gap:8px;
+    cursor:pointer;
   }
   .header-top{
     display:flex;
@@ -613,6 +614,39 @@
   .whatsnew-version{ font-size:12.5px; color:var(--text-dim); margin-bottom:12px; }
   .whatsnew-list{ margin:0; padding:0 0 0 18px; display:flex; flex-direction:column; gap:8px; }
   .whatsnew-list li{ font-size:13.5px; color:var(--text); line-height:1.4; }
+
+  /* Modal de versión: la cabecera (título, versión, botón de actualizar)
+     tiene que quedar siempre visible sin scrollear — solo el historial de
+     abajo scrollea. Por eso .version-sheet no scrollea como el resto de los
+     .modal-sheet (que sí lo hacen enteros): es flex-column con overflow
+     hidden, y el historial es el único hijo con su propio scroll. */
+  .version-sheet{
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  #versionRefreshBtn{ margin-bottom:14px; flex:0 0 auto; }
+  #versionRefreshBtn:disabled{ opacity:.6; }
+  .version-history-scroll{
+    overflow-y:auto;
+    flex:1;
+    min-height:0;
+  }
+  .version-history-subtitle{
+    font-size:11px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--text-dim);
+    margin-bottom:10px;
+  }
+  .version-history-group{ margin-bottom:14px; }
+  .version-history-group .v{
+    font-size:11.5px;
+    font-weight:800;
+    color:var(--accent-2);
+    margin-bottom:4px;
+  }
 </style>
 </head>
 <body>
@@ -642,7 +676,7 @@
 
 <header>
   <div class="header-top">
-    <h1><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> Mi Rutina</h1>
+    <h1 id="titleBtn" role="button" tabindex="0" aria-label="Ver versión y buscar actualización"><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> Mi Rutina</h1>
     <button class="theme-toggle" id="themeToggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro"></button>
   </div>
 </header>
@@ -775,6 +809,21 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="versionOverlay">
+  <div class="modal-sheet version-sheet" style="max-width:420px;">
+    <div class="modal-head">
+      <div class="modal-title">Versión instalada</div>
+      <button class="icon-btn" id="versionClose">✕</button>
+    </div>
+    <div class="whatsnew-version">versión <span id="versionNumCurrent"></span></div>
+    <button class="btn-primary" id="versionRefreshBtn" type="button">Buscar actualización</button>
+    <div class="version-history-scroll">
+      <div class="version-history-subtitle">Historial de versiones</div>
+      <div id="versionHistory"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Exercise editor modal -->
 <div class="modal-overlay hidden" id="editorOverlay">
   <div class="modal-sheet">
@@ -836,7 +885,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.3.2";
+  var APP_VERSION = "1.4.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -855,6 +904,10 @@
     "1.3.2": [
       "Achicamos el encabezado de arriba para que entre mejor la tarjeta de \"Core y Cardio\" en pantalla.",
       "Sacamos los emojis del sol/luna y de la pesa junto a \"Mi Rutina\": ahora son íconos propios, en el color de acento de la app."
+    ],
+    "1.4.0": [
+      "Tocando \"Mi Rutina\" arriba de todo ahora se ve la versión instalada, el historial completo de versiones y un botón para buscar actualización si tu celular se quedó con una vieja.",
+      "El botón de actualizar y el número de versión quedan siempre visibles arriba: si el historial es largo, scrollea solo esa lista de abajo, no toda la pantalla."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1319,6 +1372,56 @@
     }
     try{ localStorage.setItem(SEEN_VERSION_KEY, APP_VERSION); }catch(e){}
   }
+
+  // ---------- Versión instalada / buscar actualización ----------
+  function renderVersionHistory(){
+    document.getElementById("versionNumCurrent").textContent = APP_VERSION;
+    var versions = Object.keys(CHANGELOG).reverse(); // más nueva primero
+    document.getElementById("versionHistory").innerHTML = versions.map(function(v){
+      return '<div class="version-history-group"><div class="v">' + v + '</div>' +
+        '<ul class="whatsnew-list">' + CHANGELOG[v].map(function(t){ return "<li>" + t + "</li>"; }).join("") + '</ul></div>';
+    }).join("");
+  }
+
+  function openVersionModal(){
+    renderVersionHistory();
+    document.getElementById("versionOverlay").classList.remove("hidden");
+  }
+
+  function closeVersionModal(){
+    document.getElementById("versionOverlay").classList.add("hidden");
+  }
+
+  document.getElementById("titleBtn").addEventListener("click", openVersionModal);
+  document.getElementById("titleBtn").addEventListener("keydown", function(ev){
+    if(ev.key === "Enter" || ev.key === " "){
+      ev.preventDefault();
+      openVersionModal();
+    }
+  });
+  document.getElementById("versionClose").addEventListener("click", closeVersionModal);
+  document.getElementById("versionOverlay").addEventListener("click", function(ev){
+    if(ev.target === this) closeVersionModal();
+  });
+
+  // Borra cachés y desregistra el service worker directamente en vez de solo
+  // pedirle al navegador que chequee sw.js: así funciona aunque sw.js no haya
+  // cambiado de bytes en el último deploy (que es lo que puede dejar la app
+  // pegada en una versión vieja incluso apretando este botón).
+  document.getElementById("versionRefreshBtn").addEventListener("click", function(){
+    var btn = document.getElementById("versionRefreshBtn");
+    btn.disabled = true;
+    btn.textContent = "Actualizando...";
+    function reload(){ location.reload(); }
+    if("serviceWorker" in navigator){
+      Promise.all([
+        caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); }),
+        navigator.serviceWorker.getRegistrations().then(function(regs){ return Promise.all(regs.map(function(r){ return r.unregister(); })); })
+      ]).then(reload).catch(reload);
+    } else {
+      reload();
+    }
+  });
 
   // ---------- Rendering ----------
 
