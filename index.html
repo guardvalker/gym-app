@@ -499,18 +499,15 @@
   .ex-carousel{
     display:flex;
     overflow-x:auto;
-    scroll-snap-type:x mandatory;
-    /* sin -webkit-overflow-scrolling:touch a propósito: ese "momentum"
-       hace que el dedo suelte y el carrusel siga deslizando/rebotando
-       antes de asentar en la página — sin eso, el swipe frena y encastra
-       en el ejercicio más cerca de donde soltaste el dedo, mucho más
-       directo/instantáneo. */
+    /* sin scroll-snap-type ni -webkit-overflow-scrolling:touch a propósito:
+       el snap/momentum nativo trae su propia animación de asentado que no
+       se puede acortar desde CSS — el asentado ahora lo maneja JS
+       (setupExerciseCarousel), con duración propia y corta. */
     margin-bottom:8px;
   }
   .ex-carousel.hidden{ display:none; }
   .ex-page{
     flex:0 0 100%;
-    scroll-snap-align:start;
     margin:0 !important;
     box-sizing:border-box;
     border-top:3px solid var(--current-group-color);
@@ -924,7 +921,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.3";
+  var APP_VERSION = "1.7.4";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -994,6 +991,9 @@
     "1.7.3": [
       "Tocar un número de la guía ahora salta al instante a ese ejercicio, sin animación de deslizamiento.",
       "Deslizar el dedo entre ejercicios es más directo (sacamos el rebote/inercia que hacía que siguiera moviéndose solo después de soltar el dedo), y el número de la guía cambia de color apenas el deslizamiento termina, no medio segundo después."
+    ],
+    "1.7.4": [
+      "El deslizamiento entre ejercicios seguía sintiéndose lento: era el \"encastre\" automático de Android, que tiene su propia animación fija y no se podía acortar. Ahora lo manejamos nosotros enteramente, con una animación corta y propia al soltar el dedo — debería sentirse notablemente más rápido."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2039,40 +2039,99 @@
     goToExercisePage(activeExerciseId);
   }
 
-  // Mientras el usuario desliza el carrusel a mano (sin tocar la guía
-  // numerada), este listener detecta qué página quedó más visible y
-  // sincroniza el diagrama de arriba + el número activo — se arma una sola
-  // vez porque el contenedor #exCarousel no se recrea entre renders.
-  (function setupCarouselScrollSync(){
+  // Carrusel manejado a mano en vez de scroll-snap nativo: en Android el
+  // "asentado" del snap trae su propia animación de duración fija que no
+  // se puede acortar desde CSS (por eso los intentos anteriores de solo
+  // sacar el momentum/bajar el debounce no se sintieron distintos). Ahora
+  // el arrastre en sí sigue siendo 100% nativo (scroll horizontal normal,
+  // 1:1 con el dedo, ya era instantáneo) — lo único que cambia es qué pasa
+  // al soltar el dedo: nosotros decidimos la página destino (por posición,
+  // o por velocidad si fue un toque rápido y corto) y animamos hacia ahí
+  // con una duración propia y corta. El número de la guía y el diagrama se
+  // sincronizan en el mismo instante en que se decide el destino, no
+  // cuando termina la animación.
+  (function setupExerciseCarousel(){
     var carousel = document.getElementById("exCarousel");
+    var touching = false;
+    var startScrollLeft = 0;
+    var lastX = 0, lastT = 0, velX = 0; // px/ms; negativo = dedo yendo a la izquierda (avanza)
+    var FLICK_SPEED = 0.35; // px/ms — toque corto pero rápido cuenta como "pasar de página"
+    var SETTLE_MS = 130;
 
-    function syncActiveToScroll(){
+    function pageWidth(){ return carousel.clientWidth || 1; }
+
+    function pageAt(idx){
       var pages = carousel.querySelectorAll(".ex-page");
-      if(!pages.length || !carousel.clientWidth) return;
-      var idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+      if(!pages.length) return null;
       idx = Math.max(0, Math.min(idx, pages.length - 1));
-      var id = pages[idx].dataset.exId;
-      if(id && id !== activeExerciseId){
-        activeExerciseId = id;
+      var page = pages[idx];
+      // offsetLeft no sirve acá: es relativo al offsetParent, que no
+      // necesariamente es el carrusel (puede arrastrar padding de algún
+      // ancestro). Calculamos la posición real dentro del contenido
+      // scrolleable a partir de los bounding rects.
+      var left = carousel.scrollLeft + (page.getBoundingClientRect().left - carousel.getBoundingClientRect().left);
+      return { left: left, id: page.dataset.exId };
+    }
+
+    function animateScrollLeft(target){
+      var startLeft = carousel.scrollLeft;
+      var delta = target - startLeft;
+      if(Math.abs(delta) < 1) return;
+      var start = null;
+      function step(ts){
+        if(start === null) start = ts;
+        var t = Math.min(1, (ts - start) / SETTLE_MS);
+        var eased = 1 - Math.pow(1 - t, 3);
+        carousel.scrollLeft = startLeft + delta * eased;
+        if(t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function settle(){
+      var w = pageWidth();
+      var startIdx = Math.round(startScrollLeft / w);
+      var targetIdx;
+      if(Math.abs(velX) > FLICK_SPEED){
+        targetIdx = startIdx + (velX < 0 ? 1 : -1);
+      } else {
+        targetIdx = Math.round(carousel.scrollLeft / w);
+      }
+      var target = pageAt(targetIdx);
+      if(!target) return;
+      if(target.id && target.id !== activeExerciseId){
+        activeExerciseId = target.id;
         renderDiagram();
         updatePagerActive();
       }
+      animateScrollLeft(target.left);
     }
 
-    // "scrollend" dispara justo cuando el navegador terminó de asentar el
-    // snap — es el momento más temprano posible para actualizar, sin
-    // inventar un tiempo de espera fijo. No todos los navegadores lo
-    // soportan todavía, así que además queda el fallback de "scroll" +
-    // debounce corto de abajo (si "scrollend" ya actualizó, el chequeo
-    // "!== activeExerciseId" evita repetir el trabajo).
-    if("onscrollend" in window){
-      carousel.addEventListener("scrollend", syncActiveToScroll);
-    }
+    carousel.addEventListener("touchstart", function(ev){
+      touching = true;
+      startScrollLeft = carousel.scrollLeft;
+      var t = ev.touches[0];
+      lastX = t.clientX; lastT = performance.now(); velX = 0;
+    }, { passive:true });
 
+    carousel.addEventListener("touchmove", function(ev){
+      var t = ev.touches[0];
+      var now = performance.now();
+      var dt = now - lastT;
+      if(dt > 0) velX = (t.clientX - lastX) / dt;
+      lastX = t.clientX; lastT = now;
+    }, { passive:true });
+
+    carousel.addEventListener("touchend", function(){ touching = false; settle(); }, { passive:true });
+    carousel.addEventListener("touchcancel", function(){ touching = false; settle(); }, { passive:true });
+
+    // Respaldo para mouse/trackpad (no dispara touchend): asienta por
+    // posición después de una pausa en el scroll.
     var scrollTimer = null;
     carousel.addEventListener("scroll", function(){
+      if(touching) return;
       if(scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(syncActiveToScroll, 30);
+      scrollTimer = setTimeout(function(){ velX = 0; settle(); }, 150);
     });
   })();
 
