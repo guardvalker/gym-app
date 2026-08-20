@@ -511,10 +511,13 @@
   }
   .ex-pager{
     display:flex;
-    flex-wrap:wrap;
+    flex-wrap:nowrap;
     gap:6px;
     justify-content:center;
+    overflow-x:auto;
+    scrollbar-width:none;
   }
+  .ex-pager::-webkit-scrollbar{ display:none; }
   .ex-pager.hidden{ display:none; }
   .add-ex-icon{
     flex:0 0 auto;
@@ -534,6 +537,7 @@
     justify-content:center;
   }
   .ex-pager-btn{
+    flex:0 0 auto;
     width:25px;
     height:25px;
     border-radius:50%;
@@ -936,7 +940,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.7";
+  var APP_VERSION = "1.7.8";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1019,6 +1023,9 @@
     "1.7.7": [
       "\"+ Agregar ejercicio\" ahora es un botoncito + al lado de la guía numerada, en vez de una barra ancha aparte — así se ahorra espacio y se llega más fácil a \"Guardar día\" sin scrollear.",
       "Sacamos la barra de scroll gris debajo del carrusel de ejercicios: era redundante con la guía numerada, que ya muestra en qué ejercicio estás."
+    ],
+    "1.7.8": [
+      "Con más de 9 ejercicios en un día, la guía numerada ya no pasaba a una segunda fila: ahora se desliza de costado como los ejercicios, siempre en una sola línea, y el botón + queda siempre fijo en su lugar. Al cambiar de ejercicio deslizando, la guía se sigue sola hasta mostrar el número activo."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2003,9 +2010,16 @@
   }
 
   function updatePagerActive(){
+    var activeBtn = null;
     document.querySelectorAll(".ex-pager-btn").forEach(function(b){
-      b.classList.toggle("active", b.dataset.exId === activeExerciseId);
+      var isActive = b.dataset.exId === activeExerciseId;
+      b.classList.toggle("active", isActive);
+      if(isActive) activeBtn = b;
     });
+    // con más de ~9 ejercicios la guía es swipeable (ver .ex-pager en el
+    // CSS) — al cambiar de ejercicio, la seguimos hasta que el número
+    // activo quede visible, sin que el usuario tenga que scrollearla a mano.
+    if(activeBtn) activeBtn.scrollIntoView({ inline:"nearest", block:"nearest" });
   }
 
   // Tocar la guía numerada salta al instante al ejercicio (sin animación
