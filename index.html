@@ -49,6 +49,9 @@
     --group-piernas:#e64553;
     --group-hombros:#df8e1d;
     --group-corecardio:#dc8a78;
+    /* texto legible sobre un fondo pintado con --current-group-color: acá
+       los 5 colores de grupo son saturados/oscuros, blanco contrasta bien */
+    --on-group-color:#ffffff;
   }
   :root[data-theme="dark"]{
     /* Catppuccin Mocha-inspired (dark), no blue */
@@ -83,6 +86,10 @@
     --group-piernas:#eba0ac;
     --group-hombros:#f9e2af;
     --group-corecardio:#f5e0dc;
+    /* en oscuro los 5 colores de grupo son pasteles claros (pensados para
+       rellenar íconos, no para texto blanco encima) — texto oscuro es lo
+       que realmente contrasta acá */
+    --on-group-color:#181825;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
@@ -154,7 +161,8 @@
     align-items:center;
     gap:8px;
   }
-  #trainView .body-card{ padding:9px; margin-bottom:8px; gap:5px; }
+  #trainView .body-card{ padding:9px; margin-bottom:8px; gap:5px; border-top:3px solid var(--current-group-color); }
+  #trainView .back-btn{ color:var(--current-group-color); }
   .bodies{
     display:flex;
     gap:22px;
@@ -184,52 +192,33 @@
      en vez de achicar .body-svg en general. */
   #mainBodies{ gap:14px; }
   #mainBodies .body-svg{ width:80px; }
+  /* Los 3 niveles (principal/secundario/terciario) se pintan como matices
+     del color del grupo muscular activo (--current-group-color, seteado en
+     goToDay según el día) en vez de un naranja fijo sin relación con el
+     grupo — así el diagrama de cada día combina con la tarjeta de la home
+     de la que vino, y terciario ya no es un beige casi invisible: al
+     mezclarlo con --muscle-fill (que cambia con el tema) queda siempre con
+     contraste contra el fondo de la tarjeta, claro u oscuro. */
+  :root{ --current-group-color: var(--accent); }
   .zone{
     fill:var(--muscle-fill);
     stroke:none;
     transition:fill .2s;
   }
-  .zone.primary{ fill:url(#muscleGradPrimary); }
-  .zone.secondary{ fill:url(#muscleGradSecondary); }
-  .zone.tertiary{ fill:var(--muscle-tertiary); }
+  .zone.primary{ fill:var(--current-group-color); }
+  .zone.secondary{ fill:color-mix(in srgb, var(--current-group-color) 62%, var(--muscle-fill)); }
+  .zone.tertiary{ fill:color-mix(in srgb, var(--current-group-color) 32%, var(--muscle-fill)); }
   .editable .zone{ cursor:pointer; }
   .structural{
     fill:var(--muscle-fill);
     stroke:var(--muscle-outline);
     stroke-width:1.4;
   }
-  .ab-lines{
-    stroke:var(--muscle-outline);
-    stroke-width:1;
-    opacity:.55;
-    fill:none;
-  }
-  .legend{
-    display:flex;
-    gap:12px;
-    font-size:10.5px;
-    color:var(--text-dim);
-    flex-wrap:wrap;
-    justify-content:center;
-  }
-  .legend span{
-    display:inline-flex;
-    align-items:center;
-    gap:5px;
-  }
-  .legend i{
-    width:9px; height:9px;
-    border-radius:3px;
-    display:inline-block;
-  }
-  .legend i.primary{ background:linear-gradient(135deg, #fe640b, #d20f39); }
-  .legend i.secondary{ background:linear-gradient(135deg, #ffb088, #f2795f); }
-  .legend i.tertiary{ background:var(--muscle-tertiary); }
   .body-caption{
     text-align:center;
     min-height:44px;
   }
-  #trainView .body-caption{ min-height:34px; }
+  #trainView .body-caption{ min-height:26px; }
   .body-ex-name{
     font-size:14.5px;
     font-weight:700;
@@ -240,7 +229,14 @@
     margin-top:3px;
     line-height:1.5;
   }
-  .body-muscles b{ color:var(--text); font-weight:600; }
+  /* Principal/Secundario/Terciario van de costado en una sola línea, cada
+     palabra en el color de su nivel — reemplaza los cuadraditos de color
+     que había debajo del cuerpo, que además ocupaban una fila entera. */
+  .tier-word{ font-weight:800; }
+  .tier-word.primary{ color:var(--current-group-color); }
+  .tier-word.secondary{ color:color-mix(in srgb, var(--current-group-color) 70%, var(--text-dim)); }
+  .tier-word.tertiary{ color:color-mix(in srgb, var(--current-group-color) 42%, var(--text-dim)); }
+  .tier-sep{ color:var(--border); margin:0 1px; }
 
   /* ---------- Home: grupos musculares ---------- */
   .group-grid{
@@ -417,7 +413,7 @@
   .int-btn[data-i="baja"].active{ background:var(--baja); border-color:var(--baja); color:var(--baja-text); }
   .int-btn[data-i="media"].active{ background:var(--media); border-color:var(--media); color:var(--media-text); }
   .int-btn[data-i="alta"].active{ background:var(--alta); border-color:var(--alta); color:var(--alta-text); }
-  .tier-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .tier-btn.active{ background:var(--current-group-color); border-color:var(--current-group-color); color:var(--on-group-color); }
   .int-hint{
     font-size:11px;
     color:var(--text-dim);
@@ -438,75 +434,35 @@
   }
   .add-ex.hidden{ display:none; }
 
-  /* ---- Ejercicio activo + carrusel lateral + guía numerada ----
-     El módulo de arriba muestra el ejercicio activo (series/peso/repeticiones
-     + botón de intensidad); el resto de los ejercicios del día se navegan de
-     costado (carrusel horizontal) y la guía numerada de abajo permite saltar
-     directo a cualquiera. Todo pensado para entrar en una sola pantalla, sin
-     tener que bajar para ver más ejercicios. */
-  .ex-module{ margin-bottom:8px; padding:11px; }
-  .ex-module.hidden{ display:none; }
+  /* ---- Carrusel de ejercicios (una página completa por ejercicio) + guía
+     numerada ----
+     Cada ejercicio es su propia página (nombre, series/peso/repeticiones,
+     intensidad) dentro de un carrusel horizontal con scroll-snap: se navega
+     deslizando, no hay tarjetas chicas repitiendo el nombre (el título ya
+     está en la página). La guía numerada de abajo no scrollea: siempre
+     muestra todos los ejercicios del día y salta directo a cualquiera; un
+     listener de scroll en el carrusel mantiene sincronizados el diagrama de
+     arriba y qué número está activo mientras el usuario desliza a mano. */
+  .ex-carousel{
+    display:flex;
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;
+    margin-bottom:8px;
+  }
+  .ex-carousel.hidden{ display:none; }
+  .ex-page{
+    flex:0 0 100%;
+    scroll-snap-align:start;
+    margin:0 !important;
+    box-sizing:border-box;
+    border-top:3px solid var(--current-group-color);
+  }
   .peso-pill{
     display:inline-block;
     width:100%;
     text-align:center;
     box-sizing:border-box;
-  }
-  .ex-carousel{
-    display:flex;
-    gap:7px;
-    overflow-x:auto;
-    scroll-snap-type:x proximity;
-    -webkit-overflow-scrolling:touch;
-    padding-bottom:4px;
-    margin-bottom:8px;
-  }
-  .ex-carousel.hidden{ display:none; }
-  .ex-mini-card{
-    flex:0 0 auto;
-    scroll-snap-align:start;
-    width:78px;
-    padding:7px 5px;
-    border-radius:12px;
-    border:1px solid var(--border);
-    background:var(--bg-elev);
-    color:var(--text);
-    font-family:inherit;
-    text-align:center;
-    cursor:pointer;
-  }
-  .ex-mini-card.active{
-    border-color:var(--muscle-primary);
-    box-shadow:0 0 0 1px var(--muscle-primary) inset;
-    background:var(--accent-dim);
-  }
-  .ex-mini-name{
-    font-size:11px;
-    font-weight:700;
-    line-height:1.2;
-    display:-webkit-box;
-    -webkit-line-clamp:2;
-    -webkit-box-orient:vertical;
-    overflow:hidden;
-    min-height:2.15em;
-  }
-  .ex-mini-dot{
-    width:7px; height:7px;
-    border-radius:50%;
-    margin:5px auto 0 auto;
-  }
-  .ex-mini-dot.baja{ background:var(--baja); }
-  .ex-mini-dot.media{ background:var(--media); }
-  .ex-mini-dot.alta{ background:var(--alta); }
-  .ex-mini-add{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:22px;
-    font-weight:600;
-    color:var(--text-dim);
-    border-style:dashed;
-    background:transparent;
   }
   .ex-pager{
     display:flex;
@@ -517,22 +473,22 @@
   }
   .ex-pager.hidden{ display:none; }
   .ex-pager-btn{
-    width:23px;
-    height:23px;
+    width:25px;
+    height:25px;
     border-radius:50%;
     border:1px solid var(--border);
     background:var(--bg-elev-2);
     color:var(--text-dim);
     font-family:inherit;
-    font-size:11px;
+    font-size:11.5px;
     font-weight:700;
     cursor:pointer;
     padding:0;
   }
   .ex-pager-btn.active{
-    background:var(--accent);
-    border-color:var(--accent);
-    color:#fff;
+    background:var(--current-group-color);
+    border-color:var(--current-group-color);
+    color:var(--on-group-color);
   }
   .save-bar-card{ padding:10px 11px; margin-bottom:0; }
   .save-bar{
@@ -788,66 +744,12 @@
     <div class="bodies" id="mainBodies">
       <div class="body-col">
         <span class="body-label">Frente</span>
-        <svg class="body-svg" id="mainBodyFrontSvg" viewBox="0 0 140 320" xmlns="http://www.w3.org/2000/svg">
-          <path class="structural" d="M61,28 L79,28 L84,44 L56,44 Z"></path>
-          <circle class="structural" cx="70" cy="18" r="13"></circle>
-          <path class="structural" d="M 34,44 C 34,58 34,64 36,70 C 32,84 29,92 28,100 C 27,110 29,120 33,126 C 37,132 42,136 48,136 L 92,136 C 98,136 103,132 107,126 C 111,120 113,110 112,100 C 111,92 108,84 104,70 C 106,64 106,58 106,44 C 96,50 84,53 70,53 C 56,53 44,50 34,44 Z"></path>
-          <ellipse class="zone" id="shoulders-f" cx="30" cy="55" rx="13" ry="12"></ellipse>
-          <ellipse class="zone" id="shoulders-f2" cx="110" cy="55" rx="13" ry="12"></ellipse>
-          <path class="zone" id="biceps" d="M 14 58 C 14 79 17 100 17 118 L 31 118 C 31 100 34 79 34 58 Z"></path>
-          <path class="zone" id="biceps2" d="M 106 58 C 106 79 109 100 109 118 L 123 118 C 123 100 126 79 126 58 Z"></path>
-          <path class="zone" id="forearms" d="M 16.5 118 C 16.5 135.5 18.5 153 18.5 168 L 29.5 168 C 29.5 153 31.5 135.5 31.5 118 Z"></path>
-          <path class="zone" id="forearms2" d="M 108.5 118 C 108.5 135.5 110.5 153 110.5 168 L 121.5 168 C 121.5 153 123.5 135.5 123.5 118 Z"></path>
-          <circle class="structural" cx="24" cy="176" r="6.5"></circle>
-          <circle class="structural" cx="116" cy="176" r="6.5"></circle>
-          <path class="zone" id="chest" d="M 38,64 C 40,50 55,44 70,50 C 85,44 100,50 102,64 C 104,76 96,86 70,84 C 44,86 36,76 38,64 Z"></path>
-          <path class="zone" id="abs" d="M 60,90 L80,90 C86,90 88,96 87,104 L86,122 C85,130 80,134 70,134 C60,134 55,130 54,122 L53,104 C52,96 54,90 60,90 Z"></path>
-          <line class="ab-lines" x1="70" y1="92" x2="70" y2="132"></line>
-          <line class="ab-lines" x1="57" y1="100" x2="83" y2="100"></line>
-          <line class="ab-lines" x1="56" y1="114" x2="84" y2="114"></line>
-          <path class="zone" id="quads" d="M 42 130 C 42 156.6 47 183.2 47 206 L 67 206 C 67 183.2 72 156.6 72 130 Z"></path>
-          <path class="zone" id="quads2" d="M 68 130 C 68 156.6 73 183.2 73 206 L 93 206 C 93 183.2 98 156.6 98 130 Z"></path>
-          <circle class="structural" cx="57" cy="208" r="6.5"></circle>
-          <circle class="structural" cx="83" cy="208" r="6.5"></circle>
-          <ellipse class="zone" id="calves-f" cx="57" cy="246" rx="9" ry="26"></ellipse>
-          <ellipse class="zone" id="calves-f2" cx="83" cy="246" rx="9" ry="26"></ellipse>
-          <ellipse class="structural" cx="57" cy="300" rx="9" ry="6"></ellipse>
-          <ellipse class="structural" cx="83" cy="300" rx="9" ry="6"></ellipse>
-        </svg>
+        <div id="mainBodyFrontMount"></div>
       </div>
-
       <div class="body-col">
         <span class="body-label">Espalda</span>
-        <svg class="body-svg" id="mainBodyBackSvg" viewBox="0 0 140 320" xmlns="http://www.w3.org/2000/svg">
-          <path class="structural" d="M61,28 L79,28 L84,44 L56,44 Z"></path>
-          <circle class="structural" cx="70" cy="18" r="13"></circle>
-          <path class="structural" d="M 34,44 C 34,58 34,64 36,70 C 32,84 29,92 28,100 C 27,110 29,120 33,126 C 37,132 42,136 48,136 L 92,136 C 98,136 103,132 107,126 C 111,120 113,110 112,100 C 111,92 108,84 104,70 C 106,64 106,58 106,44 C 96,50 84,53 70,53 C 56,53 44,50 34,44 Z"></path>
-          <path class="zone" id="traps" d="M 70,44 L 100,52 C 96,62 84,64 70,60 C 56,64 44,62 40,52 Z"></path>
-          <ellipse class="zone" id="rear-delts" cx="30" cy="55" rx="13" ry="12"></ellipse>
-          <ellipse class="zone" id="rear-delts2" cx="110" cy="55" rx="13" ry="12"></ellipse>
-          <path class="zone" id="triceps" d="M 14 58 C 14 79 17 100 17 118 L 31 118 C 31 100 34 79 34 58 Z"></path>
-          <path class="zone" id="triceps2" d="M 106 58 C 106 79 109 100 109 118 L 123 118 C 123 100 126 79 126 58 Z"></path>
-          <circle class="structural" cx="24" cy="176" r="6.5"></circle>
-          <circle class="structural" cx="116" cy="176" r="6.5"></circle>
-          <path class="zone" id="lats" d="M 42,68 C 40,90 44,112 56,128 L 70,120 L 84,128 C 96,112 100,90 98,68 C 88,76 76,80 70,80 C 64,80 52,76 42,68 Z"></path>
-          <path class="zone" id="lower-back" d="M 58,116 L 82,116 C 86,116 88,122 86,130 L 84,140 C 80,146 60,146 56,140 L 54,130 C 52,122 54,116 58,116 Z"></path>
-          <path class="zone" id="glutes" d="M 46,132 C 46,124 54,120 70,120 C 86,120 94,124 94,132 C 96,144 88,156 70,156 C 52,156 44,144 46,132 Z"></path>
-          <path class="zone" id="hamstrings" d="M 43 134 C 43 159.2 47 184.4 47 206 L 67 206 C 67 184.4 71 159.2 71 134 Z"></path>
-          <path class="zone" id="hamstrings2" d="M 69 134 C 69 159.2 73 184.4 73 206 L 93 206 C 93 184.4 97 159.2 97 134 Z"></path>
-          <circle class="structural" cx="57" cy="208" r="6.5"></circle>
-          <circle class="structural" cx="83" cy="208" r="6.5"></circle>
-          <ellipse class="zone" id="calves-b" cx="57" cy="246" rx="9" ry="26"></ellipse>
-          <ellipse class="zone" id="calves-b2" cx="83" cy="246" rx="9" ry="26"></ellipse>
-          <ellipse class="structural" cx="57" cy="300" rx="9" ry="6"></ellipse>
-          <ellipse class="structural" cx="83" cy="300" rx="9" ry="6"></ellipse>
-        </svg>
+        <div id="mainBodyBackMount"></div>
       </div>
-    </div>
-
-    <div class="legend">
-      <span><i class="primary"></i>Principal</span>
-      <span><i class="secondary"></i>Secundario</span>
-      <span><i class="tertiary"></i>Terciario</span>
     </div>
 
     <div class="body-caption">
@@ -856,9 +758,6 @@
     </div>
   </div>
 
-  <div class="day-title" id="dayTitle"></div>
-
-  <div class="card ex-module" id="exModule"></div>
   <div class="ex-carousel" id="exCarousel"></div>
   <div class="ex-pager" id="exPager"></div>
 
@@ -953,11 +852,6 @@
           <div id="editorBodyBackMount"></div>
         </div>
       </div>
-      <div class="legend">
-        <span><i class="primary"></i>Principal</span>
-        <span><i class="secondary"></i>Secundario</span>
-        <span><i class="tertiary"></i>Terciario</span>
-      </div>
       <div class="body-caption">
         <div class="body-muscles" id="editorCaption">Sin músculos asignados</div>
       </div>
@@ -980,7 +874,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.5.0";
+  var APP_VERSION = "1.6.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1024,6 +918,13 @@
     "1.5.0": [
       "Rediseñamos la pantalla de un día de entrenamiento para que entre todo en una sola pantalla: arriba el cuerpo con los músculos del ejercicio que estés viendo resaltados, abajo series/peso/repeticiones y el botón de intensidad (baja/media/alta, con su color) de ese ejercicio.",
       "Los demás ejercicios del día ahora se navegan deslizando de costado, con una guía numerada abajo para saltar directo a cualquiera — ya no hace falta bajar la pantalla para verlos todos."
+    ],
+    "1.6.0": [
+      "El cuerpo de la pantalla de día ahora es el mismo dibujo anatómico realista que ya usaban las tarjetas de la home (antes era una figura simplificada distinta) — se ve igual en esta pantalla y al editar un ejercicio.",
+      "Principal/Secundario/Terciario ahora van en una sola línea, cada palabra en su color, en vez de una fila de cuadraditos de color debajo del cuerpo.",
+      "El color de los músculos resaltados y de los acentos de la pantalla ahora es el mismo de la tarjeta del grupo en la home (verde para espalda, naranja para pecho, etc.), y usamos tonos más legibles que antes no se distinguían bien del fondo.",
+      "Sacamos las tarjetitas chicas para pasar de ejercicio: ahora se desliza el dedo directamente sobre el ejercicio para pasar al siguiente, y la guía numerada de abajo no se mueve — así no se repite el nombre dos veces.",
+      "Sacamos el subtítulo con el nombre del día entre el cuerpo y el ejercicio, para aprovechar mejor el espacio."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1039,51 +940,105 @@
 
   var TIER_LABEL = { primary:"Principal", secondary:"Secundario", tertiary:"Terciario" };
 
-  var ZONE_LABELS = {
-    "chest":"Pecho", "abs":"Abdomen",
-    "shoulders-f":"Hombro (frontal)", "shoulders-f2":"Hombro (frontal)",
-    "biceps":"Bíceps", "biceps2":"Bíceps",
-    "forearms":"Antebrazo", "forearms2":"Antebrazo",
-    "quads":"Cuádriceps", "quads2":"Cuádriceps",
-    "calves-f":"Gemelos", "calves-f2":"Gemelos", "calves-b":"Gemelos", "calves-b2":"Gemelos",
-    "traps":"Trapecio",
-    "rear-delts":"Hombro (posterior)", "rear-delts2":"Hombro (posterior)",
-    "lats":"Dorsales",
-    "lower-back":"Espalda baja",
-    "triceps":"Tríceps", "triceps2":"Tríceps",
-    "glutes":"Glúteos",
-    "hamstrings":"Isquiotibiales", "hamstrings2":"Isquiotibiales"
+  // Zonas musculares "lógicas" que se pueden asignar a un ejercicio: cada
+  // una agrupa varios paths del cuerpo anatómico real (BM_FRONT/BM_BACK,
+  // más abajo — la misma librería body-muscles que usan los íconos de la
+  // home) para que tocar/resaltar "Pecho" pinte las 4 piezas del pectoral
+  // juntas, por ejemplo, en vez de tener que tocar cada una por separado.
+  // Reemplaza el body dibujado a mano simplificado que usaba esta pantalla
+  // y el editor antes — ahora los dos usan el mismo dibujo anatómico que
+  // ya se ve en las tarjetas de la home.
+  var LOGICAL_ZONES = [
+    { id:"chest", label:"Pecho", view:"front", paths:["chest-upper-left","chest-upper-right","chest-lower-left","chest-lower-right"] },
+    { id:"abs", label:"Abdomen", view:"front", paths:["abs-upper-left","abs-upper-right","abs-lower-left","abs-lower-right","obliques-left","obliques-right","serratus-anterior-left","serratus-anterior-right"] },
+    { id:"shoulders-f", label:"Hombro (frontal)", view:"front", paths:["shoulder-front-left","shoulder-front-right","shoulder-side-left","shoulder-side-right"] },
+    { id:"biceps", label:"Bíceps", view:"front", paths:["biceps-left","biceps-right"] },
+    { id:"forearms", label:"Antebrazo", view:"front", paths:["forearm-left","forearm-right"] },
+    { id:"quads", label:"Cuádriceps", view:"front", paths:["quads-left","quads-right","adductors-left","adductors-right"] },
+    { id:"traps", label:"Trapecio", view:"back", paths:["traps-upper-left","traps-mid-left","traps-lower-left","traps-upper-right","traps-mid-right","traps-lower-right"] },
+    { id:"rear-delts", label:"Hombro (posterior)", view:"back", paths:["deltoid-rear-left","deltoid-rear-right"] },
+    { id:"lats", label:"Dorsales", view:"back", paths:["lats-upper-left","lats-mid-left","lats-lower-left","lats-upper-right","lats-mid-right","lats-lower-right"] },
+    { id:"lower-back", label:"Espalda baja", view:"back", paths:["lower-back-erectors-left","lower-back-ql-left","lower-back-erectors-right","lower-back-ql-right","spine"] },
+    { id:"triceps", label:"Tríceps", view:"back", paths:["triceps-long-left","triceps-lateral-left","triceps-long-right","triceps-lateral-right"] },
+    { id:"glutes", label:"Glúteos", view:"back", paths:["gluteus-medius-left","gluteus-maximus-left","gluteus-medius-right","gluteus-maximus-right"] },
+    { id:"hamstrings", label:"Isquiotibiales", view:"back", paths:["hamstrings-medial-left","hamstrings-lateral-left","hamstrings-medial-right","hamstrings-lateral-right"] },
+    { id:"calves", label:"Gemelos", view:"back", paths:["calves-gastroc-medial-left","calves-gastroc-lateral-left","calves-soleus-left","calves-gastroc-medial-right","calves-gastroc-lateral-right","calves-soleus-right"] }
+  ];
+
+  var ZONE_LABELS = {};
+  var PATH_TO_ZONE = { front:{}, back:{} };
+  LOGICAL_ZONES.forEach(function(z){
+    ZONE_LABELS[z.id] = z.label;
+    z.paths.forEach(function(p){ PATH_TO_ZONE[z.view][p] = z.id; });
+  });
+
+  // Antes de esta versión cada lado (izquierda/derecha) tenía su propio id
+  // ("biceps"/"biceps2", "quads"/"quads2", etc.) porque el body dibujado a
+  // mano no agrupaba ambos lados como una sola zona tocable. Los datos ya
+  // guardados en el celular de un usuario (rutinas con músculos asignados)
+  // usan esos ids viejos — este mapa los migra a los nuevos ids consolidados
+  // (un solo id por músculo, cubriendo los dos lados) para que las rutinas
+  // ya tageadas se sigan viendo resaltadas correctamente. Es seguro
+  // ejecutarlo siempre: los ids nuevos no aparecen como clave acá, así que
+  // ya migrados no cambian (idempotente).
+  var OLD_ZONE_MIGRATION = {
+    "shoulders-f2":"shoulders-f",
+    "biceps2":"biceps",
+    "forearms2":"forearms",
+    "quads2":"quads",
+    "calves-f":"calves", "calves-f2":"calves", "calves-b":"calves", "calves-b2":"calves",
+    "rear-delts2":"rear-delts",
+    "triceps2":"triceps",
+    "hamstrings2":"hamstrings"
   };
+
+  function migrateMuscleZoneIds(parsed){
+    var days = (parsed && parsed.templates) || {};
+    Object.keys(days).forEach(function(dayId){
+      (days[dayId] || []).forEach(function(ex){
+        if(!ex.muscles) return;
+        ["primary","secondary","tertiary"].forEach(function(tier){
+          var ids = ex.muscles[tier] || [];
+          var mapped = [];
+          ids.forEach(function(id){
+            var newId = OLD_ZONE_MIGRATION[id] || id;
+            if(mapped.indexOf(newId) === -1) mapped.push(newId);
+          });
+          ex.muscles[tier] = mapped;
+        });
+      });
+    });
+  }
 
   // Músculos por defecto de cada ejercicio de la rutina (principal / secundario / terciario)
   var MUSCLE_MAP = {
-    "press de banca": { primary:["chest"], secondary:["triceps","triceps2"], tertiary:["shoulders-f","shoulders-f2"] },
-    "press inclinado con mancuernas": { primary:["chest"], secondary:["shoulders-f","shoulders-f2"], tertiary:["triceps","triceps2"] },
-    "press plano con mancuernas": { primary:["chest"], secondary:["triceps","triceps2"], tertiary:["shoulders-f","shoulders-f2"] },
-    "pullover con mancuerna": { primary:["chest"], secondary:["lats"], tertiary:["triceps","triceps2"] },
-    "extensión de tríceps en polea": { primary:["triceps","triceps2"] },
-    "patada de tríceps con mancuerna": { primary:["triceps","triceps2"] },
+    "press de banca": { primary:["chest"], secondary:["triceps"], tertiary:["shoulders-f"] },
+    "press inclinado con mancuernas": { primary:["chest"], secondary:["shoulders-f"], tertiary:["triceps"] },
+    "press plano con mancuernas": { primary:["chest"], secondary:["triceps"], tertiary:["shoulders-f"] },
+    "pullover con mancuerna": { primary:["chest"], secondary:["lats"], tertiary:["triceps"] },
+    "extensión de tríceps en polea": { primary:["triceps"] },
+    "patada de tríceps con mancuerna": { primary:["triceps"] },
 
-    "jalón al pecho (polea alta)": { primary:["lats"], secondary:["biceps","biceps2"], tertiary:["rear-delts","rear-delts2"] },
-    "remo sentado en polea": { primary:["lats"], secondary:["biceps","biceps2"], tertiary:["rear-delts","rear-delts2"] },
-    "remo a un brazo con mancuerna": { primary:["lats"], secondary:["biceps","biceps2"], tertiary:["rear-delts","rear-delts2"] },
-    "remo con barra": { primary:["lats"], secondary:["biceps","biceps2"], tertiary:["lower-back"] },
-    "curl alternado con mancuernas": { primary:["biceps","biceps2"], secondary:["forearms","forearms2"] },
-    "curl con barra z": { primary:["biceps","biceps2"], secondary:["forearms","forearms2"] },
+    "jalón al pecho (polea alta)": { primary:["lats"], secondary:["biceps"], tertiary:["rear-delts"] },
+    "remo sentado en polea": { primary:["lats"], secondary:["biceps"], tertiary:["rear-delts"] },
+    "remo a un brazo con mancuerna": { primary:["lats"], secondary:["biceps"], tertiary:["rear-delts"] },
+    "remo con barra": { primary:["lats"], secondary:["biceps"], tertiary:["lower-back"] },
+    "curl alternado con mancuernas": { primary:["biceps"], secondary:["forearms"] },
+    "curl con barra z": { primary:["biceps"], secondary:["forearms"] },
 
-    "sentadilla": { primary:["quads","quads2"], secondary:["glutes"], tertiary:["hamstrings","hamstrings2"] },
-    "prensa de piernas": { primary:["quads","quads2"], secondary:["glutes"], tertiary:["hamstrings","hamstrings2"] },
-    "curl femoral": { primary:["hamstrings","hamstrings2"], secondary:["glutes"] },
-    "extensión de cuádriceps": { primary:["quads","quads2"] },
-    "elevación de talones de pie": { primary:["calves-f","calves-f2","calves-b","calves-b2"] },
-    "peso muerto": { primary:["hamstrings","hamstrings2","glutes"], secondary:["lower-back"], tertiary:["lats","traps"] },
+    "sentadilla": { primary:["quads"], secondary:["glutes"], tertiary:["hamstrings"] },
+    "prensa de piernas": { primary:["quads"], secondary:["glutes"], tertiary:["hamstrings"] },
+    "curl femoral": { primary:["hamstrings"], secondary:["glutes"] },
+    "extensión de cuádriceps": { primary:["quads"] },
+    "elevación de talones de pie": { primary:["calves"] },
+    "peso muerto": { primary:["hamstrings","glutes"], secondary:["lower-back"], tertiary:["lats","traps"] },
 
-    "press de hombros con mancuernas": { primary:["shoulders-f","shoulders-f2"], secondary:["triceps","triceps2"], tertiary:["traps"] },
-    "press militar": { primary:["shoulders-f","shoulders-f2"], secondary:["triceps","triceps2"], tertiary:["traps"] },
-    "elevaciones laterales": { primary:["shoulders-f","shoulders-f2"], secondary:["traps"] },
-    "press arnold": { primary:["shoulders-f","shoulders-f2"], secondary:["triceps","triceps2"], tertiary:["traps"] },
-    "press en máquina": { primary:["shoulders-f","shoulders-f2"], secondary:["triceps","triceps2"] },
-    "aperturas invertidas (pájaros)": { primary:["rear-delts","rear-delts2"], secondary:["traps"] },
+    "press de hombros con mancuernas": { primary:["shoulders-f"], secondary:["triceps"], tertiary:["traps"] },
+    "press militar": { primary:["shoulders-f"], secondary:["triceps"], tertiary:["traps"] },
+    "elevaciones laterales": { primary:["shoulders-f"], secondary:["traps"] },
+    "press arnold": { primary:["shoulders-f"], secondary:["triceps"], tertiary:["traps"] },
+    "press en máquina": { primary:["shoulders-f"], secondary:["triceps"] },
+    "aperturas invertidas (pájaros)": { primary:["rear-delts"], secondary:["traps"] },
 
     "plancha": { primary:["abs"] },
     "crunch": { primary:["abs"] },
@@ -1150,6 +1105,23 @@
     { id:"core-cardio",    label:"Core y Cardio" }
   ];
 
+  // Mismo color por día que su tarjeta en la home (--group-*): se aplica a
+  // --current-group-color en goToDay() para que el diagrama, la guía
+  // numerada y los acentos de esta pantalla combinen con la tarjeta de la
+  // que se vino.
+  var GROUP_COLOR_VAR = {
+    "pecho-triceps": "--group-pecho",
+    "espalda-biceps": "--group-espalda",
+    "piernas": "--group-piernas",
+    "hombros": "--group-hombros",
+    "core-cardio": "--group-corecardio"
+  };
+
+  function applyGroupColor(dayId){
+    var varName = GROUP_COLOR_VAR[dayId];
+    document.documentElement.style.setProperty("--current-group-color", varName ? "var(" + varName + ")" : "var(--accent)");
+  }
+
   var INTENSITIES = ["baja","media","alta"];
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -1179,6 +1151,7 @@
       if(raw){
         var parsed = JSON.parse(raw);
         migrateEspaldaBaja(parsed);
+        migrateMuscleZoneIds(parsed);
         return parsed;
       }
     }catch(e){}
@@ -1280,13 +1253,13 @@
 
   function musclesCaptionHTML(muscles, emptyText){
     if(!muscles) return emptyText;
-    var lines = [];
+    var parts = [];
     ["primary","secondary","tertiary"].forEach(function(tier){
       var ids = muscles[tier] || [];
       if(!ids.length) return;
-      lines.push("<b>" + TIER_LABEL[tier] + ":</b> " + dedupeLabels(ids).join(", "));
+      parts.push('<span class="tier-word ' + tier + '">' + TIER_LABEL[tier] + ':</span> ' + dedupeLabels(ids).join(", "));
     });
-    return lines.length ? lines.join("<br>") : emptyText;
+    return parts.length ? parts.join(' <span class="tier-sep">·</span> ') : emptyText;
   }
 
   function clearZonesIn(rootId){
@@ -1297,14 +1270,56 @@
     });
   }
 
-  function applyMuscles(muscles, idSuffix){
-    idSuffix = idSuffix || "";
+  function applyMuscles(muscles, rootId){
+    var root = document.getElementById(rootId);
+    if(!root) return;
     ["primary","secondary","tertiary"].forEach(function(tier){
-      (muscles[tier] || []).forEach(function(id){
-        var el = document.getElementById(id + idSuffix);
-        if(el) el.classList.add(tier);
+      (muscles[tier] || []).forEach(function(zoneId){
+        root.querySelectorAll('[data-zone="' + zoneId + '"]').forEach(function(el){
+          el.classList.add(tier);
+        });
       });
     });
+  }
+
+  // ---------- Cuerpo anatómico (compartido: diagrama principal + editor) ----------
+  // Dibuja el mismo cuerpo real (body-muscles) que las tarjetas de la home,
+  // agrupando los paths sueltos por zona lógica (LOGICAL_ZONES). Si
+  // editable=true, cada path tocable dispara toggleEditorZone con la zona
+  // ya resuelta (no hace falta ids únicos ni clonar con sufijo).
+  function buildTaggableBody(view, editable){
+    var svgns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(svgns, "svg");
+    svg.setAttribute("viewBox", BM_VIEWBOX[view]);
+    svg.setAttribute("class", "body-svg");
+    var muscles = view === "front" ? BM_FRONT : BM_BACK;
+    var pathToZone = PATH_TO_ZONE[view];
+    muscles.forEach(function(m){
+      var pathId = m[0], d = m[1];
+      var p = document.createElementNS(svgns, "path");
+      p.setAttribute("d", d);
+      var zoneId = pathToZone[pathId];
+      if(zoneId){
+        p.setAttribute("class", "bm-muscle zone");
+        p.setAttribute("data-zone", zoneId);
+        if(editable){
+          p.addEventListener("click", function(){ toggleEditorZone(zoneId); });
+        }
+      } else {
+        p.setAttribute("class", "bm-muscle");
+      }
+      svg.appendChild(p);
+    });
+    return svg;
+  }
+
+  function renderMainBodies(){
+    var frontMount = document.getElementById("mainBodyFrontMount");
+    var backMount = document.getElementById("mainBodyBackMount");
+    frontMount.innerHTML = "";
+    backMount.innerHTML = "";
+    frontMount.appendChild(buildTaggableBody("front", false));
+    backMount.appendChild(buildTaggableBody("back", false));
   }
 
   // ---------- Main body diagram ----------
@@ -1322,64 +1337,39 @@
     }
 
     document.getElementById("bodyExName").textContent = ex.name;
-    applyMuscles(ex.muscles || {}, "");
+    applyMuscles(ex.muscles || {}, "mainBodyFrontMount");
+    applyMuscles(ex.muscles || {}, "mainBodyBackMount");
     document.getElementById("bodyMuscles").innerHTML = musclesCaptionHTML(ex.muscles, "Sin músculos asignados. Editá el ejercicio para marcarlos.");
-  }
-
-  function selectExercise(id){
-    activeExerciseId = id;
-    renderExercises();
   }
 
   // ---------- Exercise editor modal ----------
 
   var editorState = { mode:"add", dayId:null, exId:null, tier:"primary", muscles:{primary:[],secondary:[],tertiary:[]} };
 
-  function cloneBodyWithSuffix(srcSvg, suffix){
-    var clone = srcSvg.cloneNode(true);
-    clone.removeAttribute("id");
-    clone.querySelectorAll("[id]").forEach(function(el){
-      el.id = el.id + suffix;
-    });
-    return clone;
-  }
-
   function buildEditorBodies(){
-    var frontSrc = document.getElementById("mainBodyFrontSvg");
-    var backSrc = document.getElementById("mainBodyBackSvg");
-    var frontClone = cloneBodyWithSuffix(frontSrc, "-ed");
-    var backClone = cloneBodyWithSuffix(backSrc, "-ed");
-    document.getElementById("editorBodyFrontMount").appendChild(frontClone);
-    document.getElementById("editorBodyBackMount").appendChild(backClone);
-
-    [frontClone, backClone].forEach(function(svg){
-      svg.querySelectorAll(".zone").forEach(function(el){
-        el.addEventListener("click", function(){
-          var baseId = el.id.slice(0, -3); // strip "-ed"
-          toggleEditorZone(baseId);
-        });
-      });
-    });
+    document.getElementById("editorBodyFrontMount").appendChild(buildTaggableBody("front", true));
+    document.getElementById("editorBodyBackMount").appendChild(buildTaggableBody("back", true));
   }
 
   function renderEditorBody(){
     clearZonesIn("editorBodyFrontMount");
     clearZonesIn("editorBodyBackMount");
-    applyMuscles(editorState.muscles, "-ed");
+    applyMuscles(editorState.muscles, "editorBodyFrontMount");
+    applyMuscles(editorState.muscles, "editorBodyBackMount");
     document.getElementById("editorCaption").innerHTML = musclesCaptionHTML(editorState.muscles, "Sin músculos asignados");
   }
 
-  function toggleEditorZone(baseId){
+  function toggleEditorZone(zoneId){
     var m = editorState.muscles;
     var currentTier = null;
     ["primary","secondary","tertiary"].forEach(function(t){
-      if(m[t].indexOf(baseId) !== -1) currentTier = t;
+      if(m[t].indexOf(zoneId) !== -1) currentTier = t;
     });
     ["primary","secondary","tertiary"].forEach(function(t){
-      m[t] = m[t].filter(function(x){ return x !== baseId; });
+      m[t] = m[t].filter(function(x){ return x !== zoneId; });
     });
     if(currentTier !== editorState.tier){
-      m[editorState.tier].push(baseId);
+      m[editorState.tier].push(zoneId);
     }
     renderEditorBody();
   }
@@ -1550,11 +1540,11 @@
   // clase BodyChart, porque la app no tiene build step (un solo index.html).
   // Solo se toman los `d` de cada path; el resto (interactividad, colores,
   // filtros) es propio de esta app. Dibuja el cuerpo completo de cada
-  // tarjeta con músculos de verdad, en vez de las formas geométricas
-  // simplificadas que sigue usando el diagrama de ejercicios (mainBodyFrontSvg
-  // / mainBodyBackSvg más abajo, sin tocar por ahora). viewBox tal cual la
-  // librería: frente y espalda comparten un mismo lienzo, la espalda corrida
-  // en x.
+  // tarjeta con músculos de verdad — la misma base (BM_FRONT/BM_BACK) la
+  // reutiliza más abajo buildTaggableBody() para el diagrama de la pantalla
+  // de día y el editor de ejercicios, agrupada por LOGICAL_ZONES. viewBox
+  // tal cual la librería: frente y espalda comparten un mismo lienzo, la
+  // espalda corrida en x.
   var BM_VIEWBOX = { front: "0 0 35 93", back: "37 0 35 93" };
 
   var BM_FRONT = [
@@ -1708,6 +1698,7 @@
 
   function goToDay(dayId){
     currentDay = dayId;
+    applyGroupColor(dayId);
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
     currentView = "day";
@@ -1749,39 +1740,16 @@
     });
   }
 
-  function renderExercises(){
-    var day = DAYS.filter(function(d){ return d.id === currentDay; })[0];
-    document.getElementById("dayTitle").textContent = day.label;
+  // Construye la página completa de UN ejercicio (nombre + editar/eliminar,
+  // series/peso/repeticiones, botón de intensidad) para el carrusel. Cada
+  // página queda cerrada sobre su propio `ex`, así que cambiar la
+  // intensidad o los números de esa página no necesita reconstruir todo el
+  // carrusel (eso perdería la posición del scroll a mitad de un gesto).
+  function buildExercisePage(ex){
+    var page = document.createElement("div");
+    page.className = "card ex-page";
+    page.dataset.exId = ex.id;
 
-    var moduleEl = document.getElementById("exModule");
-    var carousel = document.getElementById("exCarousel");
-    var pager = document.getElementById("exPager");
-    var addBtn = document.getElementById("addExBtn");
-    moduleEl.innerHTML = "";
-    carousel.innerHTML = "";
-    pager.innerHTML = "";
-
-    var exs = data.templates[currentDay] || [];
-
-    if(exs.length === 0){
-      moduleEl.classList.add("hidden");
-      carousel.classList.add("hidden");
-      pager.classList.add("hidden");
-      addBtn.classList.remove("hidden");
-      renderDiagram();
-      return;
-    }
-    addBtn.classList.add("hidden");
-    moduleEl.classList.remove("hidden");
-    carousel.classList.remove("hidden");
-    pager.classList.remove("hidden");
-
-    if(activeExerciseId === null || !exs.some(function(e){ return e.id === activeExerciseId; })){
-      activeExerciseId = exs[0].id;
-    }
-    var ex = exs.filter(function(e){ return e.id === activeExerciseId; })[0];
-
-    // ----- módulo del ejercicio activo -----
     var head = document.createElement("div");
     head.className = "ex-head";
     var name = document.createElement("div");
@@ -1813,7 +1781,7 @@
     actions.appendChild(del);
     head.appendChild(name);
     head.appendChild(actions);
-    moduleEl.appendChild(head);
+    page.appendChild(head);
 
     var row = document.createElement("div");
     row.className = "row";
@@ -1857,7 +1825,7 @@
     row.appendChild(fSeries);
     row.appendChild(fPeso);
     row.appendChild(fReps);
-    moduleEl.appendChild(row);
+    page.appendChild(row);
 
     var intRow = document.createElement("div");
     intRow.className = "intensity";
@@ -1869,57 +1837,102 @@
       b.addEventListener("click", function(){
         ex.intensity = level;
         saveData();
-        renderExercises();
+        pesoPill.className = "pill peso-pill " + ex.intensity;
+        pesoPill.textContent = ex.intensity.charAt(0).toUpperCase() + ex.intensity.slice(1);
+        intRow.querySelectorAll(".int-btn").forEach(function(btn){
+          btn.classList.toggle("active", btn.dataset.i === ex.intensity);
+        });
       });
       intRow.appendChild(b);
     });
-    moduleEl.appendChild(intRow);
+    page.appendChild(intRow);
 
-    // ----- carrusel lateral con el resto de los ejercicios -----
-    exs.forEach(function(e){
-      var mini = document.createElement("button");
-      mini.type = "button";
-      mini.className = "ex-mini-card" + (e.id === activeExerciseId ? " active" : "");
-      mini.dataset.exId = e.id;
-      var miniName = document.createElement("div");
-      miniName.className = "ex-mini-name";
-      miniName.textContent = e.name;
-      var miniDot = document.createElement("div");
-      miniDot.className = "ex-mini-dot " + e.intensity;
-      mini.appendChild(miniName);
-      mini.appendChild(miniDot);
-      mini.addEventListener("click", function(){
-        selectExercise(e.id);
-      });
-      carousel.appendChild(mini);
+    return page;
+  }
+
+  function updatePagerActive(){
+    document.querySelectorAll(".ex-pager-btn").forEach(function(b){
+      b.classList.toggle("active", b.dataset.exId === activeExerciseId);
+    });
+  }
+
+  function goToExercisePage(id, smooth){
+    var carousel = document.getElementById("exCarousel");
+    var page = carousel.querySelector('.ex-page[data-ex-id="' + id + '"]');
+    if(page) page.scrollIntoView({ behavior: smooth ? "smooth" : "auto", inline:"start", block:"nearest" });
+    activeExerciseId = id;
+    renderDiagram();
+    updatePagerActive();
+  }
+
+  function renderExercises(){
+    var carousel = document.getElementById("exCarousel");
+    var pager = document.getElementById("exPager");
+    carousel.innerHTML = "";
+    pager.innerHTML = "";
+
+    var exs = data.templates[currentDay] || [];
+
+    if(exs.length === 0){
+      carousel.classList.add("hidden");
+      pager.classList.add("hidden");
+      activeExerciseId = null;
+      renderDiagram();
+      return;
+    }
+    carousel.classList.remove("hidden");
+    pager.classList.remove("hidden");
+
+    if(activeExerciseId === null || !exs.some(function(e){ return e.id === activeExerciseId; })){
+      activeExerciseId = exs[0].id;
+    }
+
+    exs.forEach(function(ex){
+      carousel.appendChild(buildExercisePage(ex));
     });
 
-    var addMini = document.createElement("button");
-    addMini.type = "button";
-    addMini.className = "ex-mini-card ex-mini-add";
-    addMini.textContent = "+";
-    addMini.title = "Agregar ejercicio";
-    addMini.addEventListener("click", function(){ openEditor("add", null); });
-    carousel.appendChild(addMini);
-
-    // ----- guía numerada para saltar directo a cualquier ejercicio -----
+    // guía numerada: no scrollea, siempre muestra todos los ejercicios del
+    // día y permite saltar directo a cualquiera.
     exs.forEach(function(e, idx){
       var pbtn = document.createElement("button");
       pbtn.type = "button";
       pbtn.className = "ex-pager-btn" + (e.id === activeExerciseId ? " active" : "");
       pbtn.textContent = String(idx + 1);
       pbtn.title = e.name;
+      pbtn.dataset.exId = e.id;
       pbtn.addEventListener("click", function(){
-        selectExercise(e.id);
+        goToExercisePage(e.id, true);
       });
       pager.appendChild(pbtn);
     });
 
     renderDiagram();
-
-    var activeMini = carousel.querySelector(".ex-mini-card.active");
-    if(activeMini) activeMini.scrollIntoView({ inline:"center", block:"nearest" });
+    goToExercisePage(activeExerciseId, false);
   }
+
+  // Mientras el usuario desliza el carrusel a mano (sin tocar la guía
+  // numerada), este listener detecta qué página quedó más visible y
+  // sincroniza el diagrama de arriba + el número activo — se arma una sola
+  // vez porque el contenedor #exCarousel no se recrea entre renders.
+  (function setupCarouselScrollSync(){
+    var carousel = document.getElementById("exCarousel");
+    var scrollTimer = null;
+    carousel.addEventListener("scroll", function(){
+      if(scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(function(){
+        var pages = carousel.querySelectorAll(".ex-page");
+        if(!pages.length || !carousel.clientWidth) return;
+        var idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+        idx = Math.max(0, Math.min(idx, pages.length - 1));
+        var id = pages[idx].dataset.exId;
+        if(id && id !== activeExerciseId){
+          activeExerciseId = id;
+          renderDiagram();
+          updatePagerActive();
+        }
+      }, 100);
+    });
+  })();
 
   document.getElementById("addExBtn").addEventListener("click", function(){
     openEditor("add", null);
@@ -2164,6 +2177,7 @@
 
   (function init(){
     updateThemeUI();
+    renderMainBodies();
     buildEditorBodies();
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
