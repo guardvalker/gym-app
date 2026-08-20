@@ -699,11 +699,25 @@
     margin-bottom:10px;
   }
   .log.compare-selectable{ cursor:pointer; }
+  /* Cada tarjeta trae su propio color de grupo en --log-group-color (seteado
+     inline al armar el DOM, ver renderHistory) — nunca el --current-group-color
+     global, que depende de qué pantalla se visitó antes y por eso "rotaba"
+     a un color que no era el de ese registro. */
   .log.compare-selected{
-    border-color:var(--current-group-color, var(--accent));
-    box-shadow:0 0 0 1px var(--current-group-color, var(--accent)) inset;
+    border-color:var(--log-group-color, var(--accent));
+    box-shadow:0 0 0 1px var(--log-group-color, var(--accent)) inset;
   }
-  .log.compare-disabled{ opacity:.4; pointer-events:none; }
+  .log{
+    transition:opacity .28s ease, transform .28s ease, max-height .28s ease, margin-bottom .28s ease;
+    max-height:600px;
+  }
+  .log.compare-hidden{
+    opacity:0;
+    transform:scale(.94);
+    max-height:0;
+    margin-bottom:0;
+    pointer-events:none;
+  }
   .log-select-mark{
     flex:0 0 auto;
     width:22px; height:22px;
@@ -713,8 +727,8 @@
     color:#fff;
   }
   .log.compare-selected .log-select-mark{
-    border-color:var(--current-group-color, var(--accent));
-    background:var(--current-group-color, var(--accent));
+    border-color:var(--log-group-color, var(--accent));
+    background:var(--log-group-color, var(--accent));
   }
   .log-select-mark svg{ display:none; width:13px; height:13px; }
   .log.compare-selected .log-select-mark svg{ display:block; }
@@ -1074,7 +1088,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.8.0";
+  var APP_VERSION = "1.8.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1167,6 +1181,10 @@
     "1.8.0": [
       "Arreglamos los íconos de \"Exportar\"/\"Importar copia\" en el Historial, que se veían rotos en algunos celulares (eran caracteres de flecha, ahora son íconos propios).",
       "Nuevo botón \"Comparar\" en el Historial: elegí 2 o más registros guardados del mismo grupo muscular y mirá cómo fue cambiando el peso de cada ejercicio entre esas fechas, con un gráfico simple y la diferencia total (+/- kg)."
+    ],
+    "1.8.1": [
+      "Arreglamos que el color de la tarjeta elegida en \"Comparar\" no siempre fuera el de su propio grupo muscular (a veces quedaba con el color de acento genérico según qué pantalla se había visitado antes). Ahora cada tarjeta siempre usa el color de su grupo.",
+      "Al elegir el primer registro para comparar, los de otro grupo muscular ahora desaparecen con una animación en vez de quedar solo atenuados; al deshacer la selección, vuelven a aparecer todos en su orden cronológico de siempre."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1359,9 +1377,13 @@
     "core-cardio": "--group-corecardio"
   };
 
-  function applyGroupColor(dayId){
+  function groupColorCss(dayId){
     var varName = GROUP_COLOR_VAR[dayId];
-    document.documentElement.style.setProperty("--current-group-color", varName ? "var(" + varName + ")" : "var(--accent)");
+    return varName ? "var(" + varName + ")" : "var(--accent)";
+  }
+
+  function applyGroupColor(dayId){
+    document.documentElement.style.setProperty("--current-group-color", groupColorCss(dayId));
   }
 
 
@@ -2419,26 +2441,25 @@
       wrap.appendChild(empty);
       return;
     }
+    // Este orden (más reciente primero) es el que "vuelven a estar como
+    // antes" recupera cuando se deselecciona todo en modo comparar: nunca
+    // se reordena el DOM al elegir/deshacer selección, solo se esconden o
+    // muestran tarjetas ya armadas — ver applyCompareVisualState().
     var sorted = data.logs.slice().sort(function(a,b){
       if(a.date !== b.date) return a.date < b.date ? 1 : -1;
       return b.savedAt - a.savedAt;
     });
-    // En modo comparar, una vez elegido el primer registro, los de otro
-    // grupo muscular quedan deshabilitados: no tiene sentido comparar pesos
-    // entre grupos distintos.
-    var lockedDayId = null;
-    if(compareMode && compareSelection.length > 0){
-      var firstPicked = data.logs.filter(function(l){ return l.id === compareSelection[0]; })[0];
-      lockedDayId = firstPicked ? firstPicked.dayId : null;
-    }
     sorted.forEach(function(log){
       var el = document.createElement("div");
       el.className = "log";
-      var selected = compareMode && compareSelection.indexOf(log.id) !== -1;
-      var disabled = compareMode && lockedDayId && log.dayId !== lockedDayId && !selected;
+      el.dataset.logId = log.id;
+      el.dataset.dayId = log.dayId;
+      // El color de esta tarjeta es siempre el de SU propio grupo muscular,
+      // fijo acá adentro — nunca --current-group-color (esa es una variable
+      // global que depende de qué pantalla se visitó antes, por eso "rotaba"
+      // a un color que no correspondía a este registro).
+      el.style.setProperty("--log-group-color", groupColorCss(log.dayId));
       if(compareMode) el.classList.add("compare-selectable");
-      if(selected) el.classList.add("compare-selected");
-      if(disabled) el.classList.add("compare-disabled");
 
       var head = document.createElement("div");
       head.className = "log-head";
@@ -2492,14 +2513,35 @@
       el.appendChild(body);
       wrap.appendChild(el);
     });
+    applyCompareVisualState();
   }
 
   // ---------- Comparativa de registros ----------
+
+  // Solo toca clases sobre las tarjetas que renderHistory() ya armó — nunca
+  // reconstruye el DOM. Así el paso de "visible" a "escondida" (y viceversa
+  // al deseleccionar todo) puede animarse con la transición CSS de .log; si
+  // se llamara renderHistory() en cada click, cada tarjeta se recrearía de
+  // cero y no habría nada que animar.
+  function applyCompareVisualState(){
+    var lockedDayId = null;
+    if(compareSelection.length > 0){
+      var firstPicked = data.logs.filter(function(l){ return l.id === compareSelection[0]; })[0];
+      lockedDayId = firstPicked ? firstPicked.dayId : null;
+    }
+    document.querySelectorAll("#historyList .log").forEach(function(el){
+      var selected = compareSelection.indexOf(el.dataset.logId) !== -1;
+      var hide = !!lockedDayId && el.dataset.dayId !== lockedDayId && !selected;
+      el.classList.toggle("compare-selected", selected);
+      el.classList.toggle("compare-hidden", hide);
+    });
+  }
+
   function toggleCompareSelection(id){
     var idx = compareSelection.indexOf(id);
     if(idx !== -1) compareSelection.splice(idx, 1);
     else compareSelection.push(id);
-    renderHistory();
+    applyCompareVisualState();
     updateCompareBar();
   }
 
