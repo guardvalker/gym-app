@@ -99,7 +99,7 @@
     position:sticky; top:0; z-index:20;
     background:linear-gradient(180deg, var(--top-wash), var(--bg));
     transition:background-color .2s;
-    padding:14px 16px;
+    padding:10px 16px;
     border-bottom:1px solid var(--border);
   }
   h1{
@@ -115,8 +115,9 @@
     align-items:center;
     justify-content:space-between;
     gap:10px;
-    margin-bottom:12px;
   }
+  .icon-dumbbell{ display:flex; color:var(--accent); }
+  .icon-dumbbell svg{ width:20px; height:20px; }
   .theme-toggle{
     flex:0 0 auto;
     width:38px;
@@ -641,8 +642,8 @@
 
 <header>
   <div class="header-top">
-    <h1>🏋️ Mi Rutina</h1>
-    <button class="theme-toggle" id="themeToggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro">🌙</button>
+    <h1><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> Mi Rutina</h1>
+    <button class="theme-toggle" id="themeToggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro"></button>
   </div>
 </header>
 
@@ -835,7 +836,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.3.1";
+  var APP_VERSION = "1.3.2";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -850,6 +851,10 @@
     ],
     "1.3.1": [
       "Rediseñamos la pantalla de inicio: en vez de una lista angosta, ahora es una grilla de 2 columnas con tarjetas más grandes e íconos más grandes, más fáciles de distinguir."
+    ],
+    "1.3.2": [
+      "Achicamos el encabezado de arriba para que entre mejor la tarjeta de \"Core y Cardio\" en pantalla.",
+      "Sacamos los emojis del sol/luna y de la pesa junto a \"Mi Rutina\": ahora son íconos propios, en el color de acento de la app."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1816,8 +1821,12 @@
     return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
   }
 
+  var ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"';
+  var ICON_SUN = '<svg ' + ICON_ATTRS + '><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>';
+  var ICON_MOON = '<svg ' + ICON_ATTRS + '><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+
   function updateThemeUI(){
-    document.getElementById("themeToggle").textContent = currentTheme() === "dark" ? "☀️" : "🌙";
+    document.getElementById("themeToggle").innerHTML = currentTheme() === "dark" ? ICON_SUN : ICON_MOON;
     var meta = document.querySelector('meta[name="theme-color"]');
     if(meta){
       var wash = getComputedStyle(document.documentElement).getPropertyValue("--top-wash").trim();
