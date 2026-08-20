@@ -921,7 +921,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.4";
+  var APP_VERSION = "1.7.5";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -994,6 +994,9 @@
     ],
     "1.7.4": [
       "El deslizamiento entre ejercicios seguía sintiéndose lento: era el \"encastre\" automático de Android, que tiene su propia animación fija y no se podía acortar. Ahora lo manejamos nosotros enteramente, con una animación corta y propia al soltar el dedo — debería sentirse notablemente más rápido."
+    ],
+    "1.7.5": [
+      "Arreglamos que el deslizamiento saltara varios ejercicios de golpe: el navegador seguía moviendo la pantalla solo un rato después de soltar el dedo, y eso se sumaba al arrastre. Ahora avanza de a un ejercicio por vez, salvo que arrastres más del 80% de la pantalla — ahí sí salta directo a donde soltaste el dedo, aunque sean varios ejercicios de diferencia."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2052,11 +2055,19 @@
   // cuando termina la animación.
   (function setupExerciseCarousel(){
     var carousel = document.getElementById("exCarousel");
-    var touching = false;
-    var startScrollLeft = 0;
+    // null = todavía sin decidir si el gesto es horizontal o vertical;
+    // "h" = lo manejamos nosotros a mano (preventDefault, sin scroll
+    // nativo ni momentum); "v" = es un gesto vertical (rueda, scroll de
+    // página) y lo dejamos pasar sin tocarlo.
+    var mode = null;
+    var startX = 0, startY = 0, startScrollLeft = 0;
     var lastX = 0, lastT = 0, velX = 0; // px/ms; negativo = dedo yendo a la izquierda (avanza)
+    var settling = false;
     var FLICK_SPEED = 0.35; // px/ms — toque corto pero rápido cuenta como "pasar de página"
     var SETTLE_MS = 130;
+    var MIN_INTENT_PX = 10; // menos que esto: ruido/tap, no cuenta como swipe
+    var LONG_DRAG_RATIO = 0.8; // arrastre >= 80% del ancho: recién ahí se permite saltar más de una página
+    var LOCK_PX = 6; // píxeles de "reconocimiento" antes de decidir horizontal vs vertical
 
     function pageWidth(){ return carousel.clientWidth || 1; }
 
@@ -2077,6 +2088,7 @@
       var startLeft = carousel.scrollLeft;
       var delta = target - startLeft;
       if(Math.abs(delta) < 1) return;
+      settling = true;
       var start = null;
       function step(ts){
         if(start === null) start = ts;
@@ -2084,6 +2096,7 @@
         var eased = 1 - Math.pow(1 - t, 3);
         carousel.scrollLeft = startLeft + delta * eased;
         if(t < 1) requestAnimationFrame(step);
+        else settling = false;
       }
       requestAnimationFrame(step);
     }
@@ -2091,11 +2104,23 @@
     function settle(){
       var w = pageWidth();
       var startIdx = Math.round(startScrollLeft / w);
+      var draggedPx = carousel.scrollLeft - startScrollLeft;
+      var draggedRatio = draggedPx / w;
       var targetIdx;
-      if(Math.abs(velX) > FLICK_SPEED){
+      if(Math.abs(draggedPx) < MIN_INTENT_PX){
+        // apenas se movió (ruido/tap): se queda en el mismo ejercicio
+        targetIdx = startIdx;
+      } else if(Math.abs(draggedRatio) >= LONG_DRAG_RATIO){
+        // arrastre largo y deliberado: sí puede saltar varios ejercicios,
+        // a donde haya quedado más cerca
+        targetIdx = Math.round(carousel.scrollLeft / w);
+      } else if(Math.abs(velX) > FLICK_SPEED){
+        // toque corto pero rápido: exactamente una página
         targetIdx = startIdx + (velX < 0 ? 1 : -1);
       } else {
-        targetIdx = Math.round(carousel.scrollLeft / w);
+        // arrastre deliberado pero por debajo del 80%: tope de una página,
+        // sin importar cuánto se haya movido el scroll libremente
+        targetIdx = startIdx + (draggedPx > 0 ? 1 : -1);
       }
       var target = pageAt(targetIdx);
       if(!target) return;
@@ -2107,29 +2132,53 @@
       animateScrollLeft(target.left);
     }
 
+    // El arrastre horizontal es 100% manual (scrollLeft asignado a mano en
+    // touchmove, con preventDefault) en vez de dejar que el navegador haga
+    // su scroll nativo: así el navegador nunca llega a iniciar su propio
+    // "fling"/momentum, que seguía moviendo el scroll varios cientos de ms
+    // después de soltar el dedo y terminaba saltando varios ejercicios de
+    // golpe — alternar overflow/scroll-snap no alcanzaba para frenarlo.
+    // Los primeros px de cada toque son de "reconocimiento": recién al
+    // superar LOCK_PX se decide si el gesto es horizontal (lo tomamos
+    // nosotros) o vertical (se lo dejamos al navegador — así las ruedas de
+    // series/peso/repeticiones y el scroll de la página siguen andando
+    // normal, sin que este listener las toque para nada).
     carousel.addEventListener("touchstart", function(ev){
-      touching = true;
+      mode = null;
       startScrollLeft = carousel.scrollLeft;
       var t = ev.touches[0];
+      startX = t.clientX; startY = t.clientY;
       lastX = t.clientX; lastT = performance.now(); velX = 0;
     }, { passive:true });
 
     carousel.addEventListener("touchmove", function(ev){
       var t = ev.touches[0];
+      if(mode === null){
+        var dx0 = t.clientX - startX, dy0 = t.clientY - startY;
+        if(Math.abs(dx0) < LOCK_PX && Math.abs(dy0) < LOCK_PX) return;
+        mode = Math.abs(dx0) > Math.abs(dy0) ? "h" : "v";
+      }
+      if(mode !== "h") return;
+      ev.preventDefault();
       var now = performance.now();
       var dt = now - lastT;
-      if(dt > 0) velX = (t.clientX - lastX) / dt;
+      var dx = t.clientX - lastX;
+      if(dt > 0) velX = dx / dt;
+      carousel.scrollLeft -= dx;
       lastX = t.clientX; lastT = now;
+    }, { passive:false });
+
+    carousel.addEventListener("touchend", function(){
+      if(mode === "h") settle();
+      mode = null;
     }, { passive:true });
+    carousel.addEventListener("touchcancel", function(){ mode = null; }, { passive:true });
 
-    carousel.addEventListener("touchend", function(){ touching = false; settle(); }, { passive:true });
-    carousel.addEventListener("touchcancel", function(){ touching = false; settle(); }, { passive:true });
-
-    // Respaldo para mouse/trackpad (no dispara touchend): asienta por
-    // posición después de una pausa en el scroll.
+    // Respaldo para mouse/trackpad (no dispara eventos táctiles): asienta
+    // por posición después de una pausa en el scroll.
     var scrollTimer = null;
     carousel.addEventListener("scroll", function(){
-      if(touching) return;
+      if(mode === "h" || settling) return;
       if(scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(function(){ velX = 0; settle(); }, 150);
     });
