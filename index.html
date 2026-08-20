@@ -139,7 +139,7 @@
   .day-title{
     font-size:15px;
     color:var(--text-dim);
-    margin:2px 0 14px 0;
+    margin:2px 0 10px 0;
   }
 
   /* ---- Body diagram ---- */
@@ -147,13 +147,14 @@
     background:var(--bg-elev);
     border:1px solid var(--border);
     border-radius:var(--radius);
-    padding:16px;
-    margin-bottom:16px;
+    padding:12px;
+    margin-bottom:10px;
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:12px;
+    gap:8px;
   }
+  #trainView .body-card{ padding:9px; margin-bottom:8px; gap:5px; }
   .bodies{
     display:flex;
     gap:22px;
@@ -177,6 +178,12 @@
     height:auto;
     display:block;
   }
+  /* en trainView el diagrama es solo lectura (resalta el ejercicio activo),
+     así que puede ser más chico que en el editor, donde hace falta más
+     margen para tocar cada músculo con precisión — de ahí el override acá
+     en vez de achicar .body-svg en general. */
+  #mainBodies{ gap:14px; }
+  #mainBodies .body-svg{ width:80px; }
   .zone{
     fill:var(--muscle-fill);
     stroke:none;
@@ -222,6 +229,7 @@
     text-align:center;
     min-height:44px;
   }
+  #trainView .body-caption{ min-height:34px; }
   .body-ex-name{
     font-size:14.5px;
     font-weight:700;
@@ -342,7 +350,7 @@
     align-items:center;
     justify-content:space-between;
     gap:8px;
-    margin-bottom:12px;
+    margin-bottom:8px;
   }
   .ex-name{
     font-size:15.5px;
@@ -367,7 +375,7 @@
   .row{
     display:flex;
     gap:10px;
-    margin-bottom:10px;
+    margin-bottom:8px;
   }
   .field{
     flex:1;
@@ -428,6 +436,105 @@
     cursor:pointer;
     margin-bottom:12px;
   }
+  .add-ex.hidden{ display:none; }
+
+  /* ---- Ejercicio activo + carrusel lateral + guía numerada ----
+     El módulo de arriba muestra el ejercicio activo (series/peso/repeticiones
+     + botón de intensidad); el resto de los ejercicios del día se navegan de
+     costado (carrusel horizontal) y la guía numerada de abajo permite saltar
+     directo a cualquiera. Todo pensado para entrar en una sola pantalla, sin
+     tener que bajar para ver más ejercicios. */
+  .ex-module{ margin-bottom:8px; padding:11px; }
+  .ex-module.hidden{ display:none; }
+  .peso-pill{
+    display:inline-block;
+    width:100%;
+    text-align:center;
+    box-sizing:border-box;
+  }
+  .ex-carousel{
+    display:flex;
+    gap:7px;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:4px;
+    margin-bottom:8px;
+  }
+  .ex-carousel.hidden{ display:none; }
+  .ex-mini-card{
+    flex:0 0 auto;
+    scroll-snap-align:start;
+    width:78px;
+    padding:7px 5px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--bg-elev);
+    color:var(--text);
+    font-family:inherit;
+    text-align:center;
+    cursor:pointer;
+  }
+  .ex-mini-card.active{
+    border-color:var(--muscle-primary);
+    box-shadow:0 0 0 1px var(--muscle-primary) inset;
+    background:var(--accent-dim);
+  }
+  .ex-mini-name{
+    font-size:11px;
+    font-weight:700;
+    line-height:1.2;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    min-height:2.15em;
+  }
+  .ex-mini-dot{
+    width:7px; height:7px;
+    border-radius:50%;
+    margin:5px auto 0 auto;
+  }
+  .ex-mini-dot.baja{ background:var(--baja); }
+  .ex-mini-dot.media{ background:var(--media); }
+  .ex-mini-dot.alta{ background:var(--alta); }
+  .ex-mini-add{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:22px;
+    font-weight:600;
+    color:var(--text-dim);
+    border-style:dashed;
+    background:transparent;
+  }
+  .ex-pager{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    justify-content:center;
+    margin-bottom:8px;
+  }
+  .ex-pager.hidden{ display:none; }
+  .ex-pager-btn{
+    width:23px;
+    height:23px;
+    border-radius:50%;
+    border:1px solid var(--border);
+    background:var(--bg-elev-2);
+    color:var(--text-dim);
+    font-family:inherit;
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+    padding:0;
+  }
+  .ex-pager-btn.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .save-bar-card{ padding:10px 11px; margin-bottom:0; }
   .save-bar{
     display:flex;
     gap:10px;
@@ -750,9 +857,13 @@
   </div>
 
   <div class="day-title" id="dayTitle"></div>
-  <div id="exList"></div>
+
+  <div class="card ex-module" id="exModule"></div>
+  <div class="ex-carousel" id="exCarousel"></div>
+  <div class="ex-pager" id="exPager"></div>
+
   <button class="add-ex" id="addExBtn">+ Agregar ejercicio</button>
-  <div class="card" style="cursor:default;">
+  <div class="card save-bar-card" style="cursor:default;">
     <div class="save-bar">
       <input type="date" id="saveDate">
       <button class="btn-primary" id="saveBtn">Guardar día</button>
@@ -869,7 +980,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.4.5";
+  var APP_VERSION = "1.5.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -909,6 +1020,10 @@
     ],
     "1.4.5": [
       "Arreglamos los íconos de \"Espalda y Bíceps\" y \"Pecho y Tríceps\": antes solo se resaltaba la mitad del músculo del día (espalda o pecho) porque el bíceps y el tríceps no existen en la misma vista del cuerpo. Ahora cada tarjeta muestra dos cuerpitos, uno al lado del otro, resaltando los dos músculos."
+    ],
+    "1.5.0": [
+      "Rediseñamos la pantalla de un día de entrenamiento para que entre todo en una sola pantalla: arriba el cuerpo con los músculos del ejercicio que estés viendo resaltados, abajo series/peso/repeticiones y el botón de intensidad (baja/media/alta, con su color) de ese ejercicio.",
+      "Los demás ejercicios del día ahora se navegan deslizando de costado, con una guía numerada abajo para saltar directo a cualquiera — ya no hace falta bajar la pantalla para verlos todos."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1213,10 +1328,7 @@
 
   function selectExercise(id){
     activeExerciseId = id;
-    renderDiagram();
-    document.querySelectorAll(".card[data-ex-id]").forEach(function(c){
-      c.classList.toggle("active", c.dataset.exId === id);
-    });
+    renderExercises();
   }
 
   // ---------- Exercise editor modal ----------
@@ -1640,130 +1752,173 @@
   function renderExercises(){
     var day = DAYS.filter(function(d){ return d.id === currentDay; })[0];
     document.getElementById("dayTitle").textContent = day.label;
-    var list = document.getElementById("exList");
-    list.innerHTML = "";
+
+    var moduleEl = document.getElementById("exModule");
+    var carousel = document.getElementById("exCarousel");
+    var pager = document.getElementById("exPager");
+    var addBtn = document.getElementById("addExBtn");
+    moduleEl.innerHTML = "";
+    carousel.innerHTML = "";
+    pager.innerHTML = "";
 
     var exs = data.templates[currentDay] || [];
+
     if(exs.length === 0){
-      var empty = document.createElement("div");
-      empty.className = "empty";
-      empty.textContent = "Sin ejercicios. Agregá uno abajo.";
-      list.appendChild(empty);
+      moduleEl.classList.add("hidden");
+      carousel.classList.add("hidden");
+      pager.classList.add("hidden");
+      addBtn.classList.remove("hidden");
+      renderDiagram();
+      return;
     }
+    addBtn.classList.add("hidden");
+    moduleEl.classList.remove("hidden");
+    carousel.classList.remove("hidden");
+    pager.classList.remove("hidden");
 
     if(activeExerciseId === null || !exs.some(function(e){ return e.id === activeExerciseId; })){
-      activeExerciseId = exs.length ? exs[0].id : null;
+      activeExerciseId = exs[0].id;
     }
+    var ex = exs.filter(function(e){ return e.id === activeExerciseId; })[0];
 
-    exs.forEach(function(ex){
-      var card = document.createElement("div");
-      card.className = "card" + (ex.id === activeExerciseId ? " active" : "");
-      card.dataset.exId = ex.id;
-      card.addEventListener("click", function(){
-        selectExercise(ex.id);
-      });
+    // ----- módulo del ejercicio activo -----
+    var head = document.createElement("div");
+    head.className = "ex-head";
+    var name = document.createElement("div");
+    name.className = "ex-name";
+    name.textContent = ex.name;
 
-      var head = document.createElement("div");
-      head.className = "ex-head";
-      var name = document.createElement("div");
-      name.className = "ex-name";
-      name.textContent = ex.name;
-
-      var actions = document.createElement("div");
-      actions.className = "ex-actions";
-      var editBtn = document.createElement("button");
-      editBtn.className = "icon-btn";
-      editBtn.textContent = "✎";
-      editBtn.title = "Editar ejercicio";
-      editBtn.addEventListener("click", function(ev){
-        ev.stopPropagation();
-        openEditor("edit", ex);
-      });
-      var del = document.createElement("button");
-      del.className = "icon-btn";
-      del.textContent = "✕";
-      del.title = "Eliminar ejercicio";
-      del.addEventListener("click", function(ev){
-        ev.stopPropagation();
-        showConfirm("¿Eliminar \"" + ex.name + "\" de tu rutina?", "Eliminar", function(){
-          data.templates[currentDay] = data.templates[currentDay].filter(function(e){ return e.id !== ex.id; });
-          saveData();
-          renderExercises();
-        });
-      });
-      actions.appendChild(editBtn);
-      actions.appendChild(del);
-
-      head.appendChild(name);
-      head.appendChild(actions);
-      card.appendChild(head);
-
-      var row = document.createElement("div");
-      row.className = "row";
-
-      var fSeries = document.createElement("div");
-      fSeries.className = "field";
-      fSeries.innerHTML = '<label>Series</label>';
-      var inSeries = document.createElement("input");
-      inSeries.type = "number";
-      inSeries.min = "1";
-      inSeries.inputMode = "numeric";
-      inSeries.value = ex.series;
-      inSeries.addEventListener("click", function(ev){ ev.stopPropagation(); });
-      inSeries.addEventListener("change", function(){
-        ex.series = parseInt(inSeries.value, 10) || 1;
+    var actions = document.createElement("div");
+    actions.className = "ex-actions";
+    var editBtn = document.createElement("button");
+    editBtn.className = "icon-btn";
+    editBtn.textContent = "✎";
+    editBtn.title = "Editar ejercicio";
+    editBtn.addEventListener("click", function(){
+      openEditor("edit", ex);
+    });
+    var del = document.createElement("button");
+    del.className = "icon-btn";
+    del.textContent = "✕";
+    del.title = "Eliminar ejercicio";
+    del.addEventListener("click", function(){
+      showConfirm("¿Eliminar \"" + ex.name + "\" de tu rutina?", "Eliminar", function(){
+        data.templates[currentDay] = data.templates[currentDay].filter(function(e){ return e.id !== ex.id; });
+        activeExerciseId = null;
         saveData();
+        renderExercises();
       });
-      fSeries.appendChild(inSeries);
+    });
+    actions.appendChild(editBtn);
+    actions.appendChild(del);
+    head.appendChild(name);
+    head.appendChild(actions);
+    moduleEl.appendChild(head);
 
-      var fReps = document.createElement("div");
-      fReps.className = "field";
-      fReps.innerHTML = '<label>Repeticiones</label>';
-      var inReps = document.createElement("input");
-      inReps.type = "number";
-      inReps.min = "1";
-      inReps.inputMode = "numeric";
-      inReps.value = ex.reps;
-      inReps.addEventListener("click", function(ev){ ev.stopPropagation(); });
-      inReps.addEventListener("change", function(){
-        ex.reps = parseInt(inReps.value, 10) || 1;
+    var row = document.createElement("div");
+    row.className = "row";
+
+    var fSeries = document.createElement("div");
+    fSeries.className = "field";
+    fSeries.innerHTML = '<label>Series</label>';
+    var inSeries = document.createElement("input");
+    inSeries.type = "number";
+    inSeries.min = "1";
+    inSeries.inputMode = "numeric";
+    inSeries.value = ex.series;
+    inSeries.addEventListener("change", function(){
+      ex.series = parseInt(inSeries.value, 10) || 1;
+      saveData();
+    });
+    fSeries.appendChild(inSeries);
+
+    var fPeso = document.createElement("div");
+    fPeso.className = "field";
+    fPeso.innerHTML = '<label>Peso</label>';
+    var pesoPill = document.createElement("div");
+    pesoPill.className = "pill peso-pill " + ex.intensity;
+    pesoPill.textContent = ex.intensity.charAt(0).toUpperCase() + ex.intensity.slice(1);
+    fPeso.appendChild(pesoPill);
+
+    var fReps = document.createElement("div");
+    fReps.className = "field";
+    fReps.innerHTML = '<label>Repeticiones</label>';
+    var inReps = document.createElement("input");
+    inReps.type = "number";
+    inReps.min = "1";
+    inReps.inputMode = "numeric";
+    inReps.value = ex.reps;
+    inReps.addEventListener("change", function(){
+      ex.reps = parseInt(inReps.value, 10) || 1;
+      saveData();
+    });
+    fReps.appendChild(inReps);
+
+    row.appendChild(fSeries);
+    row.appendChild(fPeso);
+    row.appendChild(fReps);
+    moduleEl.appendChild(row);
+
+    var intRow = document.createElement("div");
+    intRow.className = "intensity";
+    INTENSITIES.forEach(function(level){
+      var b = document.createElement("button");
+      b.className = "int-btn" + (ex.intensity === level ? " active" : "");
+      b.dataset.i = level;
+      b.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+      b.addEventListener("click", function(){
+        ex.intensity = level;
         saveData();
+        renderExercises();
       });
-      fReps.appendChild(inReps);
+      intRow.appendChild(b);
+    });
+    moduleEl.appendChild(intRow);
 
-      row.appendChild(fSeries);
-      row.appendChild(fReps);
-      card.appendChild(row);
-
-      var intWrap = document.createElement("div");
-      intWrap.className = "field";
-      intWrap.innerHTML = '<label>Intensidad (peso)</label>';
-      var intRow = document.createElement("div");
-      intRow.className = "intensity";
-      INTENSITIES.forEach(function(level){
-        var b = document.createElement("button");
-        b.className = "int-btn" + (ex.intensity === level ? " active" : "");
-        b.dataset.i = level;
-        b.textContent = level.charAt(0).toUpperCase() + level.slice(1);
-        b.addEventListener("click", function(ev){
-          ev.stopPropagation();
-          ex.intensity = level;
-          saveData();
-          renderExercises();
-        });
-        intRow.appendChild(b);
+    // ----- carrusel lateral con el resto de los ejercicios -----
+    exs.forEach(function(e){
+      var mini = document.createElement("button");
+      mini.type = "button";
+      mini.className = "ex-mini-card" + (e.id === activeExerciseId ? " active" : "");
+      mini.dataset.exId = e.id;
+      var miniName = document.createElement("div");
+      miniName.className = "ex-mini-name";
+      miniName.textContent = e.name;
+      var miniDot = document.createElement("div");
+      miniDot.className = "ex-mini-dot " + e.intensity;
+      mini.appendChild(miniName);
+      mini.appendChild(miniDot);
+      mini.addEventListener("click", function(){
+        selectExercise(e.id);
       });
-      intWrap.appendChild(intRow);
-      var hint = document.createElement("div");
-      hint.className = "int-hint";
-      hint.textContent = "Alta = más peso, menos repeticiones · Baja = menos peso, más repeticiones";
-      intWrap.appendChild(hint);
-      card.appendChild(intWrap);
+      carousel.appendChild(mini);
+    });
 
-      list.appendChild(card);
+    var addMini = document.createElement("button");
+    addMini.type = "button";
+    addMini.className = "ex-mini-card ex-mini-add";
+    addMini.textContent = "+";
+    addMini.title = "Agregar ejercicio";
+    addMini.addEventListener("click", function(){ openEditor("add", null); });
+    carousel.appendChild(addMini);
+
+    // ----- guía numerada para saltar directo a cualquier ejercicio -----
+    exs.forEach(function(e, idx){
+      var pbtn = document.createElement("button");
+      pbtn.type = "button";
+      pbtn.className = "ex-pager-btn" + (e.id === activeExerciseId ? " active" : "");
+      pbtn.textContent = String(idx + 1);
+      pbtn.title = e.name;
+      pbtn.addEventListener("click", function(){
+        selectExercise(e.id);
+      });
+      pager.appendChild(pbtn);
     });
 
     renderDiagram();
+
+    var activeMini = carousel.querySelector(".ex-mini-card.active");
+    if(activeMini) activeMini.scrollIntoView({ inline:"center", block:"nearest" });
   }
 
   document.getElementById("addExBtn").addEventListener("click", function(){
