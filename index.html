@@ -277,6 +277,8 @@
     flex:0 0 auto;
   }
   .group-icon-svg{ width:100%; height:100%; display:block; }
+  .group-icon-dual{ display:flex; width:100%; height:100%; gap:4px; }
+  .group-icon-dual .group-icon-svg{ width:50%; flex:1 1 0; }
   .bm-muscle{
     fill:var(--muscle-fill);
     stroke:var(--muscle-outline);
@@ -867,7 +869,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.4.4";
+  var APP_VERSION = "1.4.5";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -904,6 +906,9 @@
     ],
     "1.4.4": [
       "Arreglamos que, después de cerrar una ventana (editar ejercicio, versión, etc.) con atrás, el siguiente atrás igual cerrara la app en vez de ir a los grupos musculares. Cada ventana ahora reserva su lugar en el historial apenas se abre, en vez de intentar reponerlo después — eso es lo que fallaba."
+    ],
+    "1.4.5": [
+      "Arreglamos los íconos de \"Espalda y Bíceps\" y \"Pecho y Tríceps\": antes solo se resaltaba la mitad del músculo del día (espalda o pecho) porque el bíceps y el tríceps no existen en la misma vista del cuerpo. Ahora cada tarjeta muestra dos cuerpitos, uno al lado del otro, resaltando los dos músculos."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1552,23 +1557,41 @@
     return svg;
   }
 
-  // Mapeo grupo de la app -> vista + IDs de body-muscles a resaltar.
-  // Tríceps no existe en la vista FRONT de la librería (ni lats/traps en
-  // FRONT para "espalda"), así que esas dos tarjetas usan BACK y muestran
-  // solo la parte visible desde atrás — mismo criterio que documenta el
-  // spec original para esta integración.
+  // Mapeo grupo de la app -> vista(s) + IDs de body-muscles a resaltar.
+  // Pecho y tríceps no coexisten en una sola vista de la librería (pecho
+  // solo existe en FRONT, tríceps solo en BACK) — mismo problema para
+  // espalda (lats/traps solo en BACK) y bíceps (solo en FRONT). Por eso
+  // esas dos tarjetas combinadas declaran DOS vistas ("views": [front,
+  // back]) y buildGroupIcon dibuja un ícono por vista, uno al lado del
+  // otro, para que se vean resaltados los dos músculos del día y no solo
+  // el que le tocaba a la vista elegida.
   var GROUP_ICONS = {
-    "pecho-triceps":  { view:"front", zones:["chest-upper-left","chest-upper-right","chest-lower-left","chest-lower-right"], color:"var(--group-pecho)" },
-    "espalda-biceps": { view:"back",  zones:["lats-upper-left","lats-upper-right","lats-mid-left","lats-mid-right","lats-lower-left","lats-lower-right","traps-mid-left","traps-mid-right"], color:"var(--group-espalda)" },
-    "piernas":        { view:"front", zones:["quads-left","quads-right","adductors-left","adductors-right"], color:"var(--group-piernas)" },
-    "hombros":        { view:"front", zones:["shoulder-front-left","shoulder-front-right","shoulder-side-left","shoulder-side-right"], color:"var(--group-hombros)" },
-    "core-cardio":    { view:"front", zones:["abs-upper-left","abs-upper-right","abs-lower-left","abs-lower-right","obliques-left","obliques-right"], color:"var(--group-corecardio)" }
+    "pecho-triceps":  { views:[
+      { view:"front", zones:["chest-upper-left","chest-upper-right","chest-lower-left","chest-lower-right"] },
+      { view:"back",  zones:["triceps-long-left","triceps-lateral-left","triceps-long-right","triceps-lateral-right"] }
+    ], color:"var(--group-pecho)" },
+    "espalda-biceps": { views:[
+      { view:"back",  zones:["lats-upper-left","lats-upper-right","lats-mid-left","lats-mid-right","lats-lower-left","lats-lower-right","traps-mid-left","traps-mid-right"] },
+      { view:"front", zones:["biceps-left","biceps-right"] }
+    ], color:"var(--group-espalda)" },
+    "piernas":        { views:[{ view:"front", zones:["quads-left","quads-right","adductors-left","adductors-right"] }], color:"var(--group-piernas)" },
+    "hombros":        { views:[{ view:"front", zones:["shoulder-front-left","shoulder-front-right","shoulder-side-left","shoulder-side-right"] }], color:"var(--group-hombros)" },
+    "core-cardio":    { views:[{ view:"front", zones:["abs-upper-left","abs-upper-right","abs-lower-left","abs-lower-right","obliques-left","obliques-right"] }], color:"var(--group-corecardio)" }
   };
 
   function buildGroupIcon(day){
     var cfg = GROUP_ICONS[day.id];
     if(!cfg) return null;
-    return buildAnatomicalIcon(cfg.view, cfg.zones, cfg.color);
+    if(cfg.views.length === 1){
+      var v = cfg.views[0];
+      return buildAnatomicalIcon(v.view, v.zones, cfg.color);
+    }
+    var wrap = document.createElement("div");
+    wrap.className = "group-icon-dual";
+    cfg.views.forEach(function(v){
+      wrap.appendChild(buildAnatomicalIcon(v.view, v.zones, cfg.color));
+    });
+    return wrap;
   }
 
   function goToDay(dayId){
