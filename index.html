@@ -473,20 +473,6 @@
     pointer-events:none;
   }
 
-  .add-ex{
-    width:100%;
-    padding:12px;
-    border-radius:var(--radius);
-    border:1px dashed var(--border);
-    background:transparent;
-    color:var(--text-dim);
-    font-size:14px;
-    font-weight:600;
-    cursor:pointer;
-    margin-bottom:12px;
-  }
-  .add-ex.hidden{ display:none; }
-
   /* ---- Carrusel de ejercicios (una página completa por ejercicio) + guía
      numerada ----
      Cada ejercicio es su propia página (nombre, series/peso/repeticiones,
@@ -504,7 +490,11 @@
        se puede acortar desde CSS — el asentado ahora lo maneja JS
        (setupExerciseCarousel), con duración propia y corta. */
     margin-bottom:8px;
+    /* barra de scroll nativa oculta: la guía numerada de abajo ya indica
+       en qué ejercicio se está, mostrar las dos era redundante. */
+    scrollbar-width:none;
   }
+  .ex-carousel::-webkit-scrollbar{ display:none; }
   .ex-carousel.hidden{ display:none; }
   .ex-page{
     flex:0 0 100%;
@@ -512,14 +502,37 @@
     box-sizing:border-box;
     border-top:3px solid var(--current-group-color);
   }
+  .ex-pager-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:8px;
+  }
   .ex-pager{
     display:flex;
     flex-wrap:wrap;
     gap:6px;
     justify-content:center;
-    margin-bottom:8px;
   }
   .ex-pager.hidden{ display:none; }
+  .add-ex-icon{
+    flex:0 0 auto;
+    width:25px;
+    height:25px;
+    border-radius:50%;
+    border:1px dashed var(--border);
+    background:transparent;
+    color:var(--text-dim);
+    font-size:16px;
+    font-weight:700;
+    line-height:1;
+    cursor:pointer;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
   .ex-pager-btn{
     width:25px;
     height:25px;
@@ -806,9 +819,11 @@
   </div>
 
   <div class="ex-carousel" id="exCarousel"></div>
-  <div class="ex-pager" id="exPager"></div>
+  <div class="ex-pager-row">
+    <div class="ex-pager" id="exPager"></div>
+    <button class="add-ex-icon" id="addExBtn" title="Agregar ejercicio">+</button>
+  </div>
 
-  <button class="add-ex" id="addExBtn">+ Agregar ejercicio</button>
   <div class="card save-bar-card" style="cursor:default;">
     <div class="save-bar">
       <input type="date" id="saveDate">
@@ -921,7 +936,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.6";
+  var APP_VERSION = "1.7.7";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1000,6 +1015,10 @@
     ],
     "1.7.6": [
       "El deslizamiento entre ejercicios quedó un poco más suave al asentar (antes se sentía demasiado seco/instantáneo)."
+    ],
+    "1.7.7": [
+      "\"+ Agregar ejercicio\" ahora es un botoncito + al lado de la guía numerada, en vez de una barra ancha aparte — así se ahorra espacio y se llega más fácil a \"Guardar día\" sin scrollear.",
+      "Sacamos la barra de scroll gris debajo del carrusel de ejercicios: era redundante con la guía numerada, que ya muestra en qué ejercicio estás."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
