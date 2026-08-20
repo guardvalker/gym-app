@@ -25,12 +25,6 @@
     --accent-2:#ea76cb;
     --accent-grad:linear-gradient(135deg, var(--accent), var(--accent-2));
     --accent-dim:#f1e4fb;
-    --baja:#40a02b;
-    --baja-text:#ffffff;
-    --media:#df8e1d;
-    --media-text:#2b1a00;
-    --alta:#d20f39;
-    --alta-text:#ffffff;
     --danger:#d20f39;
     --radius:14px;
     --muscle-fill:#bcc0cc;
@@ -64,12 +58,6 @@
     --accent:#cba6f7;
     --accent-2:#f5c2e7;
     --accent-dim:#362b4d;
-    --baja:#a6e3a1;
-    --baja-text:#0f2a0c;
-    --media:#f9e2af;
-    --media-text:#3a2b00;
-    --alta:#f38ba8;
-    --alta-text:#47101c;
     --danger:#f38ba8;
     --muscle-fill:#45475a;
     --muscle-outline:#6c7086;
@@ -436,14 +424,53 @@
     font-weight:600;
     cursor:pointer;
   }
-  .int-btn[data-i="baja"].active{ background:var(--baja); border-color:var(--baja); color:var(--baja-text); }
-  .int-btn[data-i="media"].active{ background:var(--media); border-color:var(--media); color:var(--media-text); }
-  .int-btn[data-i="alta"].active{ background:var(--alta); border-color:var(--alta); color:var(--alta-text); }
   .tier-btn.active{ background:var(--current-group-color); border-color:var(--current-group-color); color:var(--on-group-color); }
   .int-hint{
     font-size:11px;
     color:var(--text-dim);
     margin-top:6px;
+  }
+
+  /* ---- Rueda de valor (series/peso/repeticiones) ----
+     Selector tipo "temporizador": se desliza verticalmente y el valor
+     centrado (dentro de la franja resaltada) es el elegido. La lista tiene
+     un padding arriba/abajo de un ítem para que el primer y el último
+     valor también puedan llegar al centro. */
+  .wheel{
+    position:relative;
+    height:96px;
+  }
+  .wheel-viewport{
+    height:100%;
+    overflow-y:auto;
+    scroll-snap-type:y mandatory;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .wheel-viewport::-webkit-scrollbar{ display:none; }
+  .wheel-list{ padding:32px 0; }
+  .wheel-item{
+    height:32px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    scroll-snap-align:center;
+    font-size:14px;
+    color:var(--text-dim);
+    font-variant-numeric:tabular-nums;
+  }
+  .wheel-item.active{
+    color:var(--text);
+    font-weight:800;
+    font-size:17px;
+  }
+  .wheel-band{
+    position:absolute;
+    left:0; right:0; top:32px;
+    height:32px;
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    pointer-events:none;
   }
 
   .add-ex{
@@ -483,12 +510,6 @@
     margin:0 !important;
     box-sizing:border-box;
     border-top:3px solid var(--current-group-color);
-  }
-  .peso-pill{
-    display:inline-block;
-    width:100%;
-    text-align:center;
-    box-sizing:border-box;
   }
   .ex-pager{
     display:flex;
@@ -599,10 +620,9 @@
     border-radius:999px;
     font-size:11.5px;
     font-weight:700;
+    background:var(--bg-elev-2);
+    color:var(--text-dim);
   }
-  .pill.baja{ background:var(--baja); color:var(--baja-text); }
-  .pill.media{ background:var(--media); color:var(--media-text); }
-  .pill.alta{ background:var(--alta); color:var(--alta-text); }
   .log-del{
     color:var(--danger);
     background:none;
@@ -900,7 +920,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.6.1";
+  var APP_VERSION = "1.7.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -954,6 +974,11 @@
     ],
     "1.6.1": [
       "El cuerpo pasa a la derecha y el nombre + Principal/Secundario/Terciario a la izquierda, en una columna de ancho fijo: antes esa tarjeta cambiaba de alto según cuántos niveles tuviera cada ejercicio (y terciario \"saltaba\" de lugar); ahora las 3 filas están siempre en el mismo orden, con un guion cuando algún ejercicio no tiene ese nivel asignado, y la tarjeta mide siempre lo mismo."
+    ],
+    "1.7.0": [
+      "Sacamos \"Intensidad (baja/media/alta)\", que ya había quedado desactualizado: ahora \"Peso\" es directamente los kilos que levantás en ese ejercicio.",
+      "Series, peso y repeticiones ahora se cargan con una rueda (como la de un temporizador): deslizás el dedo arriba o abajo hasta el número que querés, en vez de escribirlo o tocar botones.",
+      "Los ejercicios que ya tenías cargados con \"Intensidad\" pasan a un peso de arranque (baja→10, media→20, alta→35 kg) para no dejarte el campo vacío — después lo ajustás con la rueda. El historial de entrenamientos ya guardados no se toca, se sigue viendo tal cual quedó guardado en su momento."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1076,49 +1101,49 @@
     // "cardio (tiempo)" no tiene músculo específico: sin entrada acá, cloneMuscles() lo maneja con sets vacíos.
   };
 
-  function mkEx(name, series, reps, intensity){
-    return { id: slug(name), name: name, series: series, reps: reps, intensity: intensity, muscles: cloneMuscles(MUSCLE_MAP[name.toLowerCase()]) };
+  function mkEx(name, series, reps, weight){
+    return { id: slug(name), name: name, series: series, reps: reps, weight: weight, muscles: cloneMuscles(MUSCLE_MAP[name.toLowerCase()]) };
   }
 
   var EXERCISE_LIBRARY = {
     "espalda-biceps": [
-      mkEx("Jalón al pecho (polea alta)", 3, 13, "alta"),
-      mkEx("Remo sentado en polea", 3, 13, "media"),
-      mkEx("Remo a un brazo con mancuerna", 3, 20, "media"),
-      mkEx("Remo con barra", 3, 20, "alta"),
-      mkEx("Curl alternado con mancuernas", 3, 10, "media"),
-      mkEx("Curl con barra Z", 3, 12, "baja")
+      mkEx("Jalón al pecho (polea alta)", 3, 13, 45),
+      mkEx("Remo sentado en polea", 3, 13, 40),
+      mkEx("Remo a un brazo con mancuerna", 3, 20, 16),
+      mkEx("Remo con barra", 3, 20, 50),
+      mkEx("Curl alternado con mancuernas", 3, 10, 10),
+      mkEx("Curl con barra Z", 3, 12, 20)
     ],
     "pecho-triceps": [
-      mkEx("Press de banca", 3, 13, "alta"),
-      mkEx("Press inclinado con mancuernas", 3, 13, "media"),
-      mkEx("Press plano con mancuernas", 3, 15, "alta"),
-      mkEx("Pullover con mancuerna", 3, 15, "media"),
-      mkEx("Extensión de tríceps en polea", 3, 14, "baja"),
-      mkEx("Patada de tríceps con mancuerna", 3, 15, "media")
+      mkEx("Press de banca", 3, 13, 60),
+      mkEx("Press inclinado con mancuernas", 3, 13, 16),
+      mkEx("Press plano con mancuernas", 3, 15, 18),
+      mkEx("Pullover con mancuerna", 3, 15, 12),
+      mkEx("Extensión de tríceps en polea", 3, 14, 15),
+      mkEx("Patada de tríceps con mancuerna", 3, 15, 8)
     ],
     "piernas": [
-      mkEx("Sentadilla", 3, 16, "alta"),
-      mkEx("Prensa de piernas", 3, 16, "alta"),
-      mkEx("Curl femoral", 3, 20, "media"),
-      mkEx("Extensión de cuádriceps", 3, 14, "media"),
-      mkEx("Elevación de talones de pie", 3, 40, "baja"),
-      mkEx("Peso muerto", 3, 14, "alta")
+      mkEx("Sentadilla", 3, 16, 60),
+      mkEx("Prensa de piernas", 3, 16, 100),
+      mkEx("Curl femoral", 3, 20, 30),
+      mkEx("Extensión de cuádriceps", 3, 14, 25),
+      mkEx("Elevación de talones de pie", 3, 40, 20),
+      mkEx("Peso muerto", 3, 14, 70)
     ],
     "hombros": [
-      mkEx("Press de hombros con mancuernas", 3, 13, "alta"),
-      mkEx("Press militar", 3, 8, "alta"),
-      mkEx("Elevaciones laterales", 3, 12, "media"),
-      mkEx("Press Arnold", 3, 8, "media"),
-      mkEx("Press en máquina", 3, 10, "media"),
-      mkEx("Aperturas invertidas (pájaros)", 3, 13, "baja")
+      mkEx("Press de hombros con mancuernas", 3, 13, 14),
+      mkEx("Press militar", 3, 8, 30),
+      mkEx("Elevaciones laterales", 3, 12, 6),
+      mkEx("Press Arnold", 3, 8, 10),
+      mkEx("Press en máquina", 3, 10, 25),
+      mkEx("Aperturas invertidas (pájaros)", 3, 13, 5)
     ],
     "core-cardio": [
-      mkEx("Plancha", 3, 40, "media"),
-      mkEx("Crunch", 3, 20, "baja"),
-      mkEx("Elevación de piernas", 3, 15, "media"),
-      mkEx("Plancha lateral", 3, 30, "baja"),
-      mkEx("Cardio (tiempo)", 1, 20, "media")
+      mkEx("Plancha", 3, 40, 0),
+      mkEx("Crunch", 3, 20, 0),
+      mkEx("Elevación de piernas", 3, 15, 0),
+      mkEx("Plancha lateral", 3, 30, 0),
+      mkEx("Cardio (tiempo)", 1, 20, 0)
     ]
   };
 
@@ -1151,13 +1176,12 @@
     document.documentElement.style.setProperty("--current-group-color", varName ? "var(" + varName + ")" : "var(--accent)");
   }
 
-  var INTENSITIES = ["baja","media","alta"];
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
   function libraryTemplate(dayId){
     return (EXERCISE_LIBRARY[dayId] || []).map(function(e){
-      return { id: e.id, name: e.name, series: e.series, reps: e.reps, intensity: e.intensity, muscles: cloneMuscles(e.muscles) };
+      return { id: e.id, name: e.name, series: e.series, reps: e.reps, weight: e.weight, muscles: cloneMuscles(e.muscles) };
     });
   }
 
@@ -1174,6 +1198,25 @@
     migratedOnLoad = true;
   }
 
+  // El campo "intensidad" (baja/media/alta) se reemplazó por un peso en
+  // kilos: a los ejercicios ya guardados con el campo viejo se les asigna
+  // un peso de arranque según el nivel que tenían (no es el peso real que
+  // levantaba el usuario, solo un punto de partida razonable para no dejar
+  // el campo en blanco) y se saca "intensity". Idempotente: si ya tiene
+  // "weight" o no tiene "intensity", no hace nada.
+  var OLD_INTENSITY_TO_WEIGHT = { baja:10, media:20, alta:35 };
+  function migrateIntensityToWeight(parsed){
+    var days = (parsed && parsed.templates) || {};
+    Object.keys(days).forEach(function(dayId){
+      (days[dayId] || []).forEach(function(ex){
+        if(ex.weight === undefined && ex.intensity !== undefined){
+          ex.weight = OLD_INTENSITY_TO_WEIGHT[ex.intensity] !== undefined ? OLD_INTENSITY_TO_WEIGHT[ex.intensity] : 20;
+        }
+        delete ex.intensity;
+      });
+    });
+  }
+
   function loadData(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -1181,6 +1224,7 @@
         var parsed = JSON.parse(raw);
         migrateEspaldaBaja(parsed);
         migrateMuscleZoneIds(parsed);
+        migrateIntensityToWeight(parsed);
         return parsed;
       }
     }catch(e){}
@@ -1448,7 +1492,7 @@
         id = baseId + "-" + n;
         n++;
       }
-      list.push({ id:id, name:name, series:3, reps:10, intensity:"media", muscles: cloneMuscles(editorState.muscles) });
+      list.push({ id:id, name:name, series:3, reps:10, weight:20, muscles: cloneMuscles(editorState.muscles) });
       activeExerciseId = id;
     } else {
       var ex = list.filter(function(e){ return e.id === editorState.exId; })[0];
@@ -1777,6 +1821,74 @@
   // página queda cerrada sobre su propio `ex`, así que cambiar la
   // intensidad o los números de esa página no necesita reconstruir todo el
   // carrusel (eso perdería la posición del scroll a mitad de un gesto).
+  // Selector tipo rueda de temporizador: desliza verticalmente entre
+  // min..max (paso `step`) y llama a onChange con el valor que quede
+  // centrado en la franja resaltada. Arranca centrado en `value` (no
+  // siempre en el mínimo) para que ajustar un valor ya cargado no
+  // requiera scrollear desde cero cada vez.
+  function buildWheel(opts){
+    var ITEM_H = 32;
+    var values = [];
+    for(var v = opts.min; v <= opts.max; v += opts.step){
+      values.push(Math.round(v * 100) / 100);
+    }
+
+    var wrap = document.createElement("div");
+    wrap.className = "wheel";
+    var viewport = document.createElement("div");
+    viewport.className = "wheel-viewport";
+    var list = document.createElement("div");
+    list.className = "wheel-list";
+    var band = document.createElement("div");
+    band.className = "wheel-band";
+
+    var items = values.map(function(v){
+      var it = document.createElement("div");
+      it.className = "wheel-item";
+      it.textContent = String(v);
+      list.appendChild(it);
+      return it;
+    });
+
+    viewport.appendChild(list);
+    wrap.appendChild(viewport);
+    wrap.appendChild(band);
+
+    function setActive(idx){
+      items.forEach(function(it, i){ it.classList.toggle("active", i === idx); });
+    }
+
+    var initialIdx = 0, best = Infinity;
+    values.forEach(function(v, i){
+      var d = Math.abs(v - opts.value);
+      if(d < best){ best = d; initialIdx = i; }
+    });
+    setActive(initialIdx);
+    // El viewport todavía no está insertado en el documento acá (buildWheel
+    // se llama antes de que el caller lo appendee), así que asignar
+    // scrollTop ahora no tiene efecto — no hay layout todavía. Se difiere
+    // a un frame más tarde, para cuando ya esté en el DOM real.
+    requestAnimationFrame(function(){
+      viewport.scrollTop = initialIdx * ITEM_H;
+    });
+
+    var scrollTimer = null;
+    viewport.addEventListener("scroll", function(){
+      if(scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(function(){
+        var idx = Math.round(viewport.scrollTop / ITEM_H);
+        idx = Math.max(0, Math.min(idx, values.length - 1));
+        if(viewport.scrollTop !== idx * ITEM_H){
+          viewport.scrollTo({ top: idx * ITEM_H, behavior:"auto" });
+        }
+        setActive(idx);
+        opts.onChange(values[idx]);
+      }, 120);
+    });
+
+    return wrap;
+  }
+
   function buildExercisePage(ex){
     var page = document.createElement("div");
     page.className = "card ex-page";
@@ -1821,63 +1933,31 @@
     var fSeries = document.createElement("div");
     fSeries.className = "field";
     fSeries.innerHTML = '<label>Series</label>';
-    var inSeries = document.createElement("input");
-    inSeries.type = "number";
-    inSeries.min = "1";
-    inSeries.inputMode = "numeric";
-    inSeries.value = ex.series;
-    inSeries.addEventListener("change", function(){
-      ex.series = parseInt(inSeries.value, 10) || 1;
-      saveData();
-    });
-    fSeries.appendChild(inSeries);
+    fSeries.appendChild(buildWheel({
+      min:1, max:15, step:1, value: ex.series,
+      onChange: function(v){ ex.series = v; saveData(); }
+    }));
 
     var fPeso = document.createElement("div");
     fPeso.className = "field";
-    fPeso.innerHTML = '<label>Peso</label>';
-    var pesoPill = document.createElement("div");
-    pesoPill.className = "pill peso-pill " + ex.intensity;
-    pesoPill.textContent = ex.intensity.charAt(0).toUpperCase() + ex.intensity.slice(1);
-    fPeso.appendChild(pesoPill);
+    fPeso.innerHTML = '<label>Peso (kg)</label>';
+    fPeso.appendChild(buildWheel({
+      min:0, max:300, step:1, value: ex.weight,
+      onChange: function(v){ ex.weight = v; saveData(); }
+    }));
 
     var fReps = document.createElement("div");
     fReps.className = "field";
     fReps.innerHTML = '<label>Repeticiones</label>';
-    var inReps = document.createElement("input");
-    inReps.type = "number";
-    inReps.min = "1";
-    inReps.inputMode = "numeric";
-    inReps.value = ex.reps;
-    inReps.addEventListener("change", function(){
-      ex.reps = parseInt(inReps.value, 10) || 1;
-      saveData();
-    });
-    fReps.appendChild(inReps);
+    fReps.appendChild(buildWheel({
+      min:1, max:60, step:1, value: ex.reps,
+      onChange: function(v){ ex.reps = v; saveData(); }
+    }));
 
     row.appendChild(fSeries);
     row.appendChild(fPeso);
     row.appendChild(fReps);
     page.appendChild(row);
-
-    var intRow = document.createElement("div");
-    intRow.className = "intensity";
-    INTENSITIES.forEach(function(level){
-      var b = document.createElement("button");
-      b.className = "int-btn" + (ex.intensity === level ? " active" : "");
-      b.dataset.i = level;
-      b.textContent = level.charAt(0).toUpperCase() + level.slice(1);
-      b.addEventListener("click", function(){
-        ex.intensity = level;
-        saveData();
-        pesoPill.className = "pill peso-pill " + ex.intensity;
-        pesoPill.textContent = ex.intensity.charAt(0).toUpperCase() + ex.intensity.slice(1);
-        intRow.querySelectorAll(".int-btn").forEach(function(btn){
-          btn.classList.toggle("active", btn.dataset.i === ex.intensity);
-        });
-      });
-      intRow.appendChild(b);
-    });
-    page.appendChild(intRow);
 
     return page;
   }
@@ -1987,7 +2067,7 @@
       date: date,
       savedAt: Date.now(),
       exercises: exs.map(function(e){
-        return { name: e.name, series: e.series, reps: e.reps, intensity: e.intensity };
+        return { name: e.name, series: e.series, reps: e.reps, weight: e.weight };
       })
     };
     data.logs.unshift(log);
@@ -1996,6 +2076,8 @@
   });
 
   // ---------- History ----------
+
+  var LEGACY_INTENSITY_LABEL = { baja:"Baja", media:"Media", alta:"Alta" };
 
   function fmtDate(iso){
     var parts = iso.split("-");
@@ -2036,10 +2118,17 @@
       log.exercises.forEach(function(e){
         var row = document.createElement("div");
         row.className = "log-ex";
+        // Registros nuevos guardan "weight" (kg). Los históricos de antes
+        // de este cambio solo tienen "intensity" (baja/media/alta) — se
+        // muestra tal cual quedó guardado en su momento, sin inventar un
+        // peso que nunca se cargó.
+        var weightLabel = (e.weight !== undefined && e.weight !== null)
+          ? (e.weight + " kg")
+          : (LEGACY_INTENSITY_LABEL[e.intensity] || "");
         row.innerHTML =
           '<div class="log-ex-name">' + e.name + '</div>' +
           '<div style="color:var(--text-dim)">' + e.series + '×' + e.reps + '</div>' +
-          '<div class="pill ' + e.intensity + '">' + e.intensity + '</div>';
+          '<div class="pill">' + weightLabel + '</div>';
         body.appendChild(row);
       });
       var delBtn = document.createElement("button");
