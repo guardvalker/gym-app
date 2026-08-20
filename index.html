@@ -92,7 +92,7 @@
     color:var(--text);
     transition:background-color .2s;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    padding-bottom:76px;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));
     overscroll-behavior-y:none;
   }
   header{
@@ -117,6 +117,7 @@
     justify-content:space-between;
     gap:10px;
   }
+  .header-actions{ display:flex; align-items:center; gap:8px; }
   .icon-dumbbell{ display:flex; color:var(--accent); }
   .icon-dumbbell svg{ width:20px; height:20px; }
   .theme-toggle{
@@ -521,26 +522,6 @@
     cursor:pointer;
   }
 
-  nav.bottom{
-    position:fixed;
-    bottom:0; left:0; right:0;
-    display:flex;
-    background:var(--bg-elev);
-    border-top:1px solid var(--border);
-    padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px)) 6px;
-    z-index:20;
-  }
-  nav.bottom button{
-    flex:1;
-    background:none;
-    border:none;
-    color:var(--text-dim);
-    padding:8px 4px;
-    font-size:13px;
-    font-weight:600;
-    border-radius:10px;
-  }
-  nav.bottom button.active{ color:var(--accent); background:var(--accent-dim); }
 
   .toolbar{
     display:flex;
@@ -677,7 +658,10 @@
 <header>
   <div class="header-top">
     <h1 id="titleBtn" role="button" tabindex="0" aria-label="Ver versión y buscar actualización"><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> Mi Rutina</h1>
-    <button class="theme-toggle" id="themeToggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro"></button>
+    <div class="header-actions">
+      <button class="theme-toggle" id="historyBtn" title="Historial" aria-label="Ver historial de entrenamientos guardados"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>
+      <button class="theme-toggle" id="themeToggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro"></button>
+    </div>
   </div>
 </header>
 
@@ -775,6 +759,9 @@
 </main>
 
 <main id="historyView" class="hidden">
+  <div class="back-row">
+    <button class="back-btn" id="historyBackBtn">‹ Grupos musculares</button>
+  </div>
   <div class="toolbar">
     <button id="exportBtn">⭳ Exportar copia</button>
     <button id="importBtn">⭱ Importar copia</button>
@@ -783,11 +770,6 @@
 </main>
 
 <input type="file" id="importFile" accept="application/json" class="hidden">
-
-<nav class="bottom">
-  <button id="navTrain" class="active">💪 Entrenar</button>
-  <button id="navHistory">📅 Historial</button>
-</nav>
 
 <div class="toast" id="toast"></div>
 
@@ -885,7 +867,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.4.0";
+  var APP_VERSION = "1.4.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -908,6 +890,10 @@
     "1.4.0": [
       "Tocando \"Mi Rutina\" arriba de todo ahora se ve la versión instalada, el historial completo de versiones y un botón para buscar actualización si tu celular se quedó con una vieja.",
       "El botón de actualizar y el número de versión quedan siempre visibles arriba: si el historial es largo, scrollea solo esa lista de abajo, no toda la pantalla."
+    ],
+    "1.4.1": [
+      "Sacamos la barra de \"Entrenar\"/\"Historial\" de abajo, que tapaba la tarjeta de \"Core y Cardio\": ahora los grupos musculares son directamente la pantalla principal, y el historial se abre con el ícono de calendario junto a \"Mi Rutina\".",
+      "El botón atrás del celular ya no cierra la app estando adentro de un día o del historial: te lleva a los grupos musculares, como cualquier botón \"‹\" de la app."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1576,6 +1562,7 @@
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
     currentView = "day";
+    pushViewState("day");
     showView();
   }
 
@@ -1838,37 +1825,46 @@
   }
 
   // ---------- Nav ----------
-  // currentView: "groups" (home, tarjetas de grupo) | "day" (ejercicios del
-  // grupo elegido) | "history". El tab "Entrenar" siempre vuelve a "groups"
-  // — si ya estabas dentro de un día, tocarlo de nuevo te saca afuera, igual
-  // que "volver al inicio" tocando un tab ya activo en cualquier app con tabs.
+  // currentView: "groups" (home, tarjetas de grupo — pantalla raíz) | "day"
+  // (ejercicios del grupo elegido) | "history". Ya no hay barra inferior:
+  // "groups" es siempre lo primero que se ve, y desde ahí se entra a un día
+  // (tocando su tarjeta) o al historial (ícono del header).
+  //
+  // El botón "atrás" del sistema (o el gesto) navega por acá en vez de
+  // cerrar la app: cada vez que se entra a "day" o "history" se apila un
+  // estado en el history de la página (pushViewState), y un handler de
+  // popstate es la ÚNICA fuente de verdad para volver — los botones "‹" de
+  // cada pantalla llaman a history.back() en vez de tocar currentView
+  // directamente, así el estado del navegador y el de la app nunca se
+  // desincronizan.
+  function pushViewState(view){
+    try{ history.pushState({ gymView: view }, "", ""); }catch(e){}
+  }
+
+  window.addEventListener("popstate", function(ev){
+    currentView = (ev.state && ev.state.gymView) || "groups";
+    showView();
+  });
 
   function showView(){
     document.getElementById("groupsView").classList.toggle("hidden", currentView !== "groups");
     document.getElementById("trainView").classList.toggle("hidden", currentView !== "day");
     document.getElementById("historyView").classList.toggle("hidden", currentView !== "history");
-    document.getElementById("navTrain").classList.toggle("active", currentView !== "history");
-    document.getElementById("navHistory").classList.toggle("active", currentView === "history");
 
     if(currentView === "groups") renderGroupsView();
     else if(currentView === "day") renderExercises();
     else if(currentView === "history") renderHistory();
   }
 
-  document.getElementById("navTrain").addEventListener("click", function(){
-    currentView = "groups";
-    showView();
-  });
-
-  document.getElementById("navHistory").addEventListener("click", function(){
+  function openHistory(){
     currentView = "history";
+    pushViewState("history");
     showView();
-  });
+  }
+  document.getElementById("historyBtn").addEventListener("click", openHistory);
 
-  document.getElementById("trainBackBtn").addEventListener("click", function(){
-    currentView = "groups";
-    showView();
-  });
+  document.getElementById("trainBackBtn").addEventListener("click", function(){ history.back(); });
+  document.getElementById("historyBackBtn").addEventListener("click", function(){ history.back(); });
 
   // ---------- Export / Import ----------
 
@@ -1949,6 +1945,10 @@
     buildEditorBodies();
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
+    // reemplaza (no apila) el estado inicial: "groups" es la raíz, así el
+    // primer "atrás" desde ahí hace lo que corresponda fuera de la app en
+    // vez de quedar pegado en un estado interno.
+    try{ history.replaceState({ gymView: "groups" }, "", ""); }catch(e){}
     showView();
     checkForUpdate();
   })();
