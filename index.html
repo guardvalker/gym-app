@@ -867,7 +867,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.4.2";
+  var APP_VERSION = "1.4.3";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -896,8 +896,11 @@
       "El botón atrás del celular ya no cierra la app estando adentro de un día o del historial: te lleva a los grupos musculares, como cualquier botón \"‹\" de la app."
     ],
     "1.4.2": [
-      "El botón atrás ahora también cierra primero cualquier ventana abierta (editar ejercicio, versión, confirmaciones) antes de moverse a la pantalla de atrás, en vez de saltear directamente.",
-      "En la pantalla principal (grupos musculares) el botón atrás ya no cierra la app."
+      "El botón atrás ahora también cierra primero cualquier ventana abierta (editar ejercicio, versión, confirmaciones) antes de moverse a la pantalla de atrás, en vez de saltear directamente."
+    ],
+    "1.4.3": [
+      "Arreglamos que el botón atrás cerrara la app directamente en vez de volver a los grupos musculares: los pasos de navegación interna ahora usan una URL propia para cada pantalla, que es lo que hace que el celular los reconozca como historial real de la app.",
+      "En la pantalla principal, atrás sigue haciendo lo de siempre (salir) — no hay más pantallas propias para volver desde ahí."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1835,25 +1838,27 @@
   // (tocando su tarjeta) o al historial (ícono del header).
   //
   // El botón "atrás" del sistema (o el gesto) navega por acá en vez de
-  // cerrar la app: cada vez que se entra a "day" o "history" se apila un
-  // estado en el history de la página (pushViewState), y un handler de
-  // popstate es la ÚNICA fuente de verdad para volver — los botones "‹" de
-  // cada pantalla llaman a history.back() en vez de tocar currentView
-  // directamente, así el estado del navegador y el de la app nunca se
-  // desincronizan.
+  // cerrar la app directamente: cada vez que se entra a "day", "history" o
+  // se abre un modal se apila un estado con una URL propia (necesario:
+  // apilar con la URL vacía/repetida hace que algunos navegadores en
+  // Android no lo cuenten como una entrada real de historial, y ahí es
+  // donde "atrás" terminaba cerrando la app aunque hubiera algo para
+  // deshacer). popstate es la única fuente de verdad para deshacer esos
+  // pasos — los botones "‹" de la UI llaman a history.back() en vez de
+  // tocar currentView directamente.
   //
-  // Reglas del handler de popstate, en orden:
+  // Reglas del handler, en orden:
   // 1. Si hay un modal abierto (editor, versión, novedades, o el confirm
   //    dinámico de showConfirm), atrás lo cierra a él primero — sin cambiar
-  //    de vista de fondo — y repone el estado consumido, para no perder
-  //    profundidad en el stack.
+  //    de vista de fondo — y repone el estado consumido para no perder
+  //    profundidad (si no, el siguiente atrás saltearía un nivel de más).
   // 2. Si no hay modal, cambia de vista según el estado al que se navegó.
-  // 3. Si esa vista es "groups" (la raíz), vuelve a apilar el mismo estado:
-  //    así nunca se queda sin nada para "consumir" y el próximo atrás no
-  //    cierra la app — ni siquiera la primera vez, gracias al empujón extra
-  //    que se hace al iniciar (ver init()).
+  //
+  // Estando en "groups" (la pantalla principal) no se apila nada extra: no
+  // hay más historial propio para deshacer ahí, así que un atrás adicional
+  // queda a cargo del navegador/SO — igual que en cualquier otra app.
   function pushViewState(view){
-    try{ history.pushState({ gymView: view }, "", ""); }catch(e){}
+    try{ history.pushState({ gymView: view }, "", "#" + view); }catch(e){}
   }
 
   function closeTopModal(){
@@ -1872,7 +1877,6 @@
     }
     currentView = (ev.state && ev.state.gymView) || "groups";
     showView();
-    if(currentView === "groups") pushViewState("groups");
   });
 
   function showView(){
@@ -1974,14 +1978,9 @@
     buildEditorBodies();
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
-    // Deja dos entradas de "groups" en el history (reemplaza la inicial y
-    // apila una más encima): así hay algo para que el popstate handler
-    // consuma incluso en el primerísimo atrás, apenas se abre la app, y
-    // nunca cierra la app estando en la pantalla principal.
-    try{
-      history.replaceState({ gymView: "groups" }, "", "");
-      history.pushState({ gymView: "groups" }, "", "");
-    }catch(e){}
+    // Solo reemplaza (no apila) el estado inicial: "groups" es la raíz, no
+    // hay nada propio antes que ella para deshacer.
+    try{ history.replaceState({ gymView: "groups" }, "", "#groups"); }catch(e){}
     showView();
     checkForUpdate();
   })();
