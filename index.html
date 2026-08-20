@@ -921,7 +921,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.7.5";
+  var APP_VERSION = "1.7.6";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -997,6 +997,9 @@
     ],
     "1.7.5": [
       "Arreglamos que el deslizamiento saltara varios ejercicios de golpe: el navegador seguía moviendo la pantalla solo un rato después de soltar el dedo, y eso se sumaba al arrastre. Ahora avanza de a un ejercicio por vez, salvo que arrastres más del 80% de la pantalla — ahí sí salta directo a donde soltaste el dedo, aunque sean varios ejercicios de diferencia."
+    ],
+    "1.7.6": [
+      "El deslizamiento entre ejercicios quedó un poco más suave al asentar (antes se sentía demasiado seco/instantáneo)."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2064,7 +2067,7 @@
     var lastX = 0, lastT = 0, velX = 0; // px/ms; negativo = dedo yendo a la izquierda (avanza)
     var settling = false;
     var FLICK_SPEED = 0.35; // px/ms — toque corto pero rápido cuenta como "pasar de página"
-    var SETTLE_MS = 130;
+    var SETTLE_MS = 190;
     var MIN_INTENT_PX = 10; // menos que esto: ruido/tap, no cuenta como swipe
     var LONG_DRAG_RATIO = 0.8; // arrastre >= 80% del ancho: recién ahí se permite saltar más de una página
     var LOCK_PX = 6; // píxeles de "reconocimiento" antes de decidir horizontal vs vertical
@@ -2093,7 +2096,7 @@
       function step(ts){
         if(start === null) start = ts;
         var t = Math.min(1, (ts - start) / SETTLE_MS);
-        var eased = 1 - Math.pow(1 - t, 3);
+        var eased = 1 - Math.pow(1 - t, 2); // easeOutQuad: un poco más suave que cubic, menos "seco" al frenar
         carousel.scrollLeft = startLeft + delta * eased;
         if(t < 1) requestAnimationFrame(step);
         else settling = false;
