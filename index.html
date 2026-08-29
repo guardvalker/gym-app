@@ -399,7 +399,7 @@
     text-transform:uppercase;
     letter-spacing:.03em;
   }
-  input[type=number], input[type=date], input[type=text]{
+  input[type=number], input[type=date], input[type=text], input[type=email]{
     background:var(--bg-elev-2);
     border:1px solid var(--border);
     color:var(--text);
@@ -890,6 +890,17 @@
     color:var(--accent-2);
     margin-bottom:4px;
   }
+
+  /* ---- Cuenta y sincronización ---- */
+  .sync-note{ font-size:12.5px; color:var(--text-dim); line-height:1.4; margin:0 0 12px 0; }
+  .sync-msg{ font-size:12.5px; line-height:1.4; margin-top:12px; }
+  .sync-msg.ok{ color:var(--group-espalda); }
+  .sync-msg.err{ color:var(--danger); }
+  .sync-email{ font-size:13.5px; color:var(--text); margin-bottom:14px; word-break:break-all; }
+  .sync-status{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim); margin-bottom:14px; }
+  .sync-status .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-dim); flex:0 0 auto; }
+  .sync-status.ok .dot{ background:var(--group-espalda); }
+  .sync-status.err .dot{ background:var(--danger); }
 </style>
 </head>
 <body>
@@ -922,6 +933,7 @@
     <h1 id="titleBtn" role="button" tabindex="0" aria-label="Ver versión y buscar actualización"><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> Mi Rutina</h1>
     <div class="header-actions">
       <button class="theme-toggle" id="historyBtn" title="Historial" aria-label="Ver historial de entrenamientos guardados"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>
+      <button class="theme-toggle hidden" id="accountBtn" title="Cuenta y sincronización" aria-label="Cuenta y sincronización"></button>
       <button class="theme-toggle" id="themeToggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro"></button>
     </div>
   </div>
@@ -1032,6 +1044,40 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="accountOverlay">
+  <div class="modal-sheet" style="max-width:420px;">
+    <div class="modal-head">
+      <div class="modal-title">Cuenta y sincronización</div>
+      <button class="icon-btn" id="accountClose">✕</button>
+    </div>
+
+    <div id="accountLoggedOut">
+      <p class="sync-note">Iniciá sesión para guardar tu rutina y tu historial en la nube y tenerlos en cualquier dispositivo.</p>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Email</label>
+        <input type="email" id="accountEmailInput" placeholder="tu@email.com" autocomplete="email">
+      </div>
+      <button class="btn-primary" id="accountSendOtpBtn" type="button" style="width:100%;">Enviar código</button>
+      <div id="accountOtpStep" class="hidden" style="margin-top:14px;">
+        <div class="field" style="margin-bottom:10px;">
+          <label>Código recibido por email</label>
+          <input type="text" id="accountOtpInput" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="12">
+        </div>
+        <button class="btn-primary" id="accountVerifyOtpBtn" type="button" style="width:100%;">Confirmar código</button>
+      </div>
+    </div>
+
+    <div id="accountLoggedIn" class="hidden">
+      <div class="sync-email" id="accountEmailLabel"></div>
+      <div class="sync-status" id="accountSyncStatus"><span class="dot"></span><span id="accountSyncStatusText">Sincronizado</span></div>
+      <button class="btn-secondary" id="accountSyncNowBtn" type="button" style="width:100%;">Sincronizar ahora</button>
+      <button class="btn-danger" id="accountLogoutBtn" type="button" style="width:100%; margin-top:10px;">Cerrar sesión</button>
+    </div>
+
+    <div class="sync-msg hidden" id="accountMsg"></div>
+  </div>
+</div>
+
 <!-- Exercise editor modal -->
 <div class="modal-overlay hidden" id="editorOverlay">
   <div class="modal-sheet">
@@ -1081,6 +1127,10 @@
   </div>
 </div>
 
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="sync.js"></script>
+
 <script>
 (function(){
   "use strict";
@@ -1088,7 +1138,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.8.1";
+  var APP_VERSION = "1.9.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1185,6 +1235,10 @@
     "1.8.1": [
       "Arreglamos que el color de la tarjeta elegida en \"Comparar\" no siempre fuera el de su propio grupo muscular (a veces quedaba con el color de acento genérico según qué pantalla se había visitado antes). Ahora cada tarjeta siempre usa el color de su grupo.",
       "Al elegir el primer registro para comparar, los de otro grupo muscular ahora desaparecen con una animación en vez de quedar solo atenuados; al deshacer la selección, vuelven a aparecer todos en su orden cronológico de siempre."
+    ],
+    "1.9.0": [
+      "Nuevo: cuenta con inicio de sesión (código por email, sin contraseña) para guardar tu rutina y tu historial en la nube y tenerlos en cualquier dispositivo. Es opcional — sin iniciar sesión la app sigue funcionando 100% en este celular, como siempre.",
+      "El ícono de nube junto al de historial abre \"Cuenta y sincronización\"."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1450,6 +1504,11 @@
     localStorage.removeItem("__test__");
   }catch(e){ storageOK = false; }
 
+  // true mientras se está aplicando un payload que acaba de llegar de
+  // Supabase (login o cambio remoto) — evita que saveData() lo reenvíe de
+  // vuelta a Supabase como si fuera un cambio local nuevo.
+  var applyingRemoteUpdate = false;
+
   function saveData(){
     if(!storageOK){
       showToast("No se puede guardar (almacenamiento no disponible)");
@@ -1457,6 +1516,7 @@
     }
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
     catch(e){ showToast("Error al guardar"); }
+    if(!applyingRemoteUpdate && window.Sync) window.Sync.pushData(data);
   }
 
   if(migratedOnLoad) saveData();
@@ -1800,6 +1860,106 @@
   document.getElementById("versionClose").addEventListener("click", closeVersionModal);
   document.getElementById("versionOverlay").addEventListener("click", function(ev){
     if(ev.target === this) closeVersionModal();
+  });
+
+  // ---------- Cuenta y sincronización (Supabase, OTP por email) ----------
+  // Un solo registro por cuenta (tabla gy_data): no hay "rutina compartida"
+  // ni código de invitación como en lista-super, cada usuario ve solo lo
+  // suyo. Mientras config.js tenga los placeholders, window.Sync.isConfigured()
+  // da false y accountBtn queda oculto — la app funciona 100% local, igual
+  // que antes de este cambio.
+  function openAccountModal(){
+    renderAccountModal();
+    document.getElementById("accountMsg").classList.add("hidden");
+    document.getElementById("accountOverlay").classList.remove("hidden");
+    pushModalState();
+  }
+  function closeAccountModal(){
+    history.back();
+  }
+  function accountMsg(text, ok){
+    var el = document.getElementById("accountMsg");
+    el.textContent = text;
+    el.classList.remove("hidden", "ok", "err");
+    el.classList.add(ok ? "ok" : "err");
+  }
+  function renderAccountModal(){
+    var user = window.Sync.getUser();
+    document.getElementById("accountLoggedOut").classList.toggle("hidden", !!user);
+    document.getElementById("accountLoggedIn").classList.toggle("hidden", !user);
+    if(user) document.getElementById("accountEmailLabel").textContent = user.email;
+    updateAccountBtnIcon();
+  }
+  function updateAccountBtnIcon(){
+    document.getElementById("accountBtn").innerHTML = window.Sync.getUser() ? ICON_CLOUD_CHECK : ICON_CLOUD;
+  }
+  document.getElementById("accountBtn").addEventListener("click", openAccountModal);
+  document.getElementById("accountClose").addEventListener("click", closeAccountModal);
+  document.getElementById("accountOverlay").addEventListener("click", function(ev){
+    if(ev.target === this) closeAccountModal();
+  });
+
+  document.getElementById("accountSendOtpBtn").addEventListener("click", function(){
+    var email = document.getElementById("accountEmailInput").value.trim();
+    if(!email) return;
+    var btn = document.getElementById("accountSendOtpBtn");
+    btn.disabled = true;
+    window.Sync.sendOtp(email).then(function(){
+      document.getElementById("accountOtpStep").classList.remove("hidden");
+      document.getElementById("accountOtpInput").focus();
+      accountMsg("Listo, revisá tu email y escribí el código.", true);
+    }).catch(function(err){
+      accountMsg(err.message || "No se pudo enviar el código", false);
+    }).finally(function(){ btn.disabled = false; });
+  });
+
+  // Si tanto lo local como lo remoto tienen entrenamientos guardados, no
+  // podemos mergear en silencio sin arriesgar perder historial de un lado
+  // — se lo preguntamos al usuario una sola vez, acá.
+  function maybeMergeOnLogin(){
+    return window.Sync.hasRemoteData().then(function(remoteHasData){
+      var hasLocal = data.logs.length > 0;
+      if(!remoteHasData){
+        if(hasLocal) window.Sync.pushData(data);
+        return;
+      }
+      if(!hasLocal) return window.Sync.pullNow();
+      var useCloud = confirm(
+        "Ya hay entrenamientos guardados en la nube para esta cuenta.\n\n" +
+        "Aceptar: descargarlos (reemplaza los datos de este dispositivo).\n" +
+        "Cancelar: mantener los datos de este dispositivo (reemplaza los de la nube)."
+      );
+      if(useCloud) return window.Sync.pullNow();
+      window.Sync.pushData(data);
+    });
+  }
+
+  document.getElementById("accountVerifyOtpBtn").addEventListener("click", function(){
+    var email = document.getElementById("accountEmailInput").value.trim();
+    var token = document.getElementById("accountOtpInput").value.trim();
+    if(!email || !token) return;
+    var btn = document.getElementById("accountVerifyOtpBtn");
+    btn.disabled = true;
+    window.Sync.verifyOtp(email, token).then(function(){
+      document.getElementById("accountOtpStep").classList.add("hidden");
+      document.getElementById("accountOtpInput").value = "";
+      renderAccountModal();
+      return maybeMergeOnLogin();
+    }).catch(function(err){
+      accountMsg(err.message || "Código incorrecto", false);
+    }).finally(function(){ btn.disabled = false; });
+  });
+
+  document.getElementById("accountSyncNowBtn").addEventListener("click", function(){
+    document.getElementById("accountSyncStatusText").textContent = "Sincronizando...";
+    window.Sync.pullNow().then(function(){
+      document.getElementById("accountSyncStatus").className = "sync-status ok";
+      document.getElementById("accountSyncStatusText").textContent = "Sincronizado";
+    });
+  });
+
+  document.getElementById("accountLogoutBtn").addEventListener("click", function(){
+    window.Sync.signOut().then(renderAccountModal);
   });
 
   // Borra cachés y desregistra el service worker directamente en vez de solo
@@ -2879,6 +3039,8 @@
   var ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"';
   var ICON_SUN = '<svg ' + ICON_ATTRS + '><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>';
   var ICON_MOON = '<svg ' + ICON_ATTRS + '><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+  var ICON_CLOUD = '<svg ' + ICON_ATTRS + '><path d="M17.5 19H9a5 5 0 0 1-1-9.9V9a5 5 0 0 1 10 0v.1a4.5 4.5 0 0 1-.5 9z"></path></svg>';
+  var ICON_CLOUD_CHECK = '<svg ' + ICON_ATTRS + '><path d="M17.5 19H9a5 5 0 0 1-1-9.9V9a5 5 0 0 1 10 0v.1a4.5 4.5 0 0 1-.5 9z"></path><path d="M9 13l2 2 4-4"></path></svg>';
 
   function updateThemeUI(){
     document.getElementById("themeToggle").innerHTML = currentTheme() === "dark" ? ICON_SUN : ICON_MOON;
@@ -2895,6 +3057,39 @@
     try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
     updateThemeUI();
   });
+
+  function applyRemoteData(payload){
+    applyingRemoteUpdate = true;
+    data = payload;
+    saveData();
+    applyingRemoteUpdate = false;
+    var exs = data.templates[currentDay] || [];
+    if(!exs.some(function(e){ return e.id === activeExerciseId; })){
+      activeExerciseId = exs.length ? exs[0].id : null;
+    }
+    showView();
+  }
+
+  if(window.Sync && window.Sync.isConfigured()){
+    document.getElementById("accountBtn").classList.remove("hidden");
+    window.Sync.init({
+      onAuthChange: function(){ renderAccountModal(); },
+      onRemoteData: function(payload){
+        applyRemoteData(payload);
+        document.getElementById("accountSyncStatus").className = "sync-status ok";
+        document.getElementById("accountSyncStatusText").textContent = "Sincronizado";
+      },
+      onSynced: function(){
+        document.getElementById("accountSyncStatus").className = "sync-status ok";
+        document.getElementById("accountSyncStatusText").textContent = "Sincronizado";
+      },
+      onSyncError: function(msg){
+        document.getElementById("accountSyncStatus").className = "sync-status err";
+        document.getElementById("accountSyncStatusText").textContent = "Error de sincronización";
+        if(!document.getElementById("accountOverlay").classList.contains("hidden")) accountMsg(msg, false);
+      }
+    });
+  }
 
   (function init(){
     updateThemeUI();
