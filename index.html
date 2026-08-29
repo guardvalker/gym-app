@@ -382,6 +382,7 @@
     border-radius:8px;
   }
   .icon-btn:active{ background:var(--bg-elev-2); }
+  .icon-btn.has-notes{ color:var(--current-group-color); }
   .row{
     display:flex;
     gap:10px;
@@ -409,6 +410,17 @@
     width:100%;
   }
   input[type=number]{ -moz-appearance:textfield; }
+  textarea{
+    background:var(--bg-elev-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:15px;
+    width:100%;
+    font-family:inherit;
+    resize:vertical;
+  }
   .intensity{
     display:flex;
     gap:6px;
@@ -501,6 +513,19 @@
     margin:0 !important;
     box-sizing:border-box;
     border-top:3px solid var(--current-group-color);
+    /* mantener apretado reordena (ver setupExerciseCarousel) — sin esto,
+       el menú nativo de selección/copiar de iOS y Android puede aparecer
+       encima y competir con nuestro propio long-press. */
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+  }
+  .ex-page.reordering{
+    transform:scale(1.03);
+    box-shadow:0 10px 28px rgba(0,0,0,.35);
+    position:relative;
+    z-index:5;
+    transition:transform .15s ease, box-shadow .15s ease;
   }
   .ex-pager-row{
     display:flex;
@@ -1127,6 +1152,27 @@
   </div>
 </div>
 
+<!-- Notas de ejercicio -->
+<div class="modal-overlay hidden" id="notesOverlay">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">Notas — <span id="notesExerciseName"></span></div>
+      <button class="icon-btn" id="notesClose">✕</button>
+    </div>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Nota</label>
+      <textarea id="notesText" rows="5" placeholder="Ej: agarre cerrado, cuidado con el hombro derecho, bajar el peso si duele..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger hidden" id="notesDelete">Borrar nota</button>
+      <div class="modal-actions-right">
+        <button class="btn-secondary" id="notesCancel">Cancelar</button>
+        <button class="btn-primary" id="notesSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
 <script src="sync.js"></script>
@@ -1138,7 +1184,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.9.1";
+  var APP_VERSION = "1.10.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1242,6 +1288,10 @@
     ],
     "1.9.1": [
       "Ícono nuevo de la app: la mancuerna ahora tiene relieve y sombra en vez de ser un dibujo plano."
+    ],
+    "1.10.0": [
+      "Nuevo botón de notas (al lado de editar) en cada ejercicio, para anotar cosas como el agarre o cuidados con alguna lesión.",
+      "Ahora podés reordenar tus ejercicios: mantené apretado en cualquier parte libre de la tarjeta (no en los botones ni en las ruedas) y arrastrá para moverlo antes o después de otro."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1809,6 +1859,61 @@
     if(ev.target === this) closeEditor();
   });
 
+  // ---------- Notas por ejercicio ----------
+  // ex.notes es un campo opcional (string) más en el mismo objeto ejercicio
+  // — no requiere migración: si no existe, se trata como "sin nota" en
+  // todos lados (openNotes muestra vacío, el botón no se resalta).
+  // Deliberadamente NO se copia a los logs del historial (saveBtn's log.exercises
+  // solo guarda name/series/reps/weight) — la nota es sobre el ejercicio "de
+  // ahora en más", no un dato del entrenamiento puntual que quedó guardado.
+  var notesState = { dayId:null, exId:null };
+
+  function openNotes(ex){
+    notesState.dayId = currentDay;
+    notesState.exId = ex.id;
+    document.getElementById("notesExerciseName").textContent = ex.name;
+    document.getElementById("notesText").value = ex.notes || "";
+    document.getElementById("notesDelete").classList.toggle("hidden", !ex.notes);
+    document.getElementById("notesOverlay").classList.remove("hidden");
+    pushModalState();
+  }
+
+  function closeNotes(){
+    history.back();
+  }
+
+  function findNotesExercise(){
+    var list = data.templates[notesState.dayId] || [];
+    return list.filter(function(e){ return e.id === notesState.exId; })[0];
+  }
+
+  function saveNotes(){
+    var ex = findNotesExercise();
+    if(ex){
+      var text = document.getElementById("notesText").value.trim();
+      if(text) ex.notes = text; else delete ex.notes;
+      saveData();
+    }
+    closeNotes();
+    renderExercises();
+  }
+
+  function deleteNotesFromModal(){
+    var ex = findNotesExercise();
+    if(ex) delete ex.notes;
+    saveData();
+    closeNotes();
+    renderExercises();
+  }
+
+  document.getElementById("notesClose").addEventListener("click", closeNotes);
+  document.getElementById("notesCancel").addEventListener("click", closeNotes);
+  document.getElementById("notesSave").addEventListener("click", saveNotes);
+  document.getElementById("notesDelete").addEventListener("click", deleteNotesFromModal);
+  document.getElementById("notesOverlay").addEventListener("click", function(ev){
+    if(ev.target === this) closeNotes();
+  });
+
   // ---------- Novedades de la app ----------
   function closeWhatsnew(){
     history.back();
@@ -2267,6 +2372,12 @@
     return wrap;
   }
 
+  // Mismo ícono "note" ya usado en lista-super (ICONS.note) — texto plano
+  // como ✎/✕ acá cerca es una fuente conocida de bug (íconos "rotos" en
+  // ciertas fuentes de Android, ver Historial v1.8.0 en la memoria del
+  // proyecto), así que este botón nuevo usa SVG desde el arranque.
+  var ICON_NOTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';
+
   function buildExercisePage(ex){
     var page = document.createElement("div");
     page.className = "card ex-page";
@@ -2287,6 +2398,13 @@
     editBtn.addEventListener("click", function(){
       openEditor("edit", ex);
     });
+    var notesBtn = document.createElement("button");
+    notesBtn.className = "icon-btn" + (ex.notes ? " has-notes" : "");
+    notesBtn.innerHTML = ICON_NOTE;
+    notesBtn.title = ex.notes ? "Ver/editar nota" : "Agregar nota";
+    notesBtn.addEventListener("click", function(){
+      openNotes(ex);
+    });
     var del = document.createElement("button");
     del.className = "icon-btn";
     del.textContent = "✕";
@@ -2300,6 +2418,7 @@
       });
     });
     actions.appendChild(editBtn);
+    actions.appendChild(notesBtn);
     actions.appendChild(del);
     head.appendChild(name);
     head.appendChild(actions);
@@ -2440,6 +2559,25 @@
     var LONG_DRAG_RATIO = 0.8; // arrastre >= 80% del ancho: recién ahí se permite saltar más de una página
     var LOCK_PX = 6; // píxeles de "reconocimiento" antes de decidir horizontal vs vertical
 
+    // ---- Mantener apretado para reordenar ----
+    // Mismo arrastre físico que el swipe normal (reusa por completo el
+    // tracking de scrollLeft de más abajo) — lo único distinto es qué pasa
+    // al soltar: en vez de solo navegar al ejercicio más cercano
+    // (settle()), se MUEVE el ejercicio arrastrado a esa posición dentro de
+    // data.templates[currentDay] (settleReorder()). Arranca solo si el toque
+    // empezó en una parte de la tarjeta sin función propia (ni un botón
+    // ✎/🗒/✕, ni adentro de una rueda) y el dedo se mantuvo quieto
+    // LONG_PRESS_MS sin moverse más de LOCK_PX — cualquier movimiento real
+    // antes de eso cancela el long-press y sigue siendo un swipe común.
+    var LONG_PRESS_MS = 480;
+    var longPressTimer = null;
+    var reorderMode = false;
+    var reorderPage = null;
+
+    function isOnInteractiveChild(target){
+      return !!(target.closest && target.closest(".icon-btn, .wheel-viewport"));
+    }
+
     function pageWidth(){ return carousel.clientWidth || 1; }
 
     function pageAt(idx){
@@ -2472,28 +2610,33 @@
       requestAnimationFrame(step);
     }
 
-    function settle(){
+    // Misma cuenta para decidir "a qué página quedó más cerca el
+    // arrastre" tanto para navegar (settle) como para reordenar
+    // (settleReorder) — factorizado para que ambos usen siempre el mismo
+    // criterio en vez de mantener la lógica duplicada en dos lugares.
+    function computeTargetIdx(){
       var w = pageWidth();
       var startIdx = Math.round(startScrollLeft / w);
       var draggedPx = carousel.scrollLeft - startScrollLeft;
       var draggedRatio = draggedPx / w;
-      var targetIdx;
       if(Math.abs(draggedPx) < MIN_INTENT_PX){
         // apenas se movió (ruido/tap): se queda en el mismo ejercicio
-        targetIdx = startIdx;
+        return startIdx;
       } else if(Math.abs(draggedRatio) >= LONG_DRAG_RATIO){
         // arrastre largo y deliberado: sí puede saltar varios ejercicios,
         // a donde haya quedado más cerca
-        targetIdx = Math.round(carousel.scrollLeft / w);
+        return Math.round(carousel.scrollLeft / w);
       } else if(Math.abs(velX) > FLICK_SPEED){
         // toque corto pero rápido: exactamente una página
-        targetIdx = startIdx + (velX < 0 ? 1 : -1);
-      } else {
-        // arrastre deliberado pero por debajo del 80%: tope de una página,
-        // sin importar cuánto se haya movido el scroll libremente
-        targetIdx = startIdx + (draggedPx > 0 ? 1 : -1);
+        return startIdx + (velX < 0 ? 1 : -1);
       }
-      var target = pageAt(targetIdx);
+      // arrastre deliberado pero por debajo del 80%: tope de una página,
+      // sin importar cuánto se haya movido el scroll libremente
+      return startIdx + (draggedPx > 0 ? 1 : -1);
+    }
+
+    function settle(){
+      var target = pageAt(computeTargetIdx());
       if(!target) return;
       if(target.id && target.id !== activeExerciseId){
         activeExerciseId = target.id;
@@ -2501,6 +2644,29 @@
         updatePagerActive();
       }
       animateScrollLeft(target.left);
+    }
+
+    // Al soltar en modo reorder: en vez de navegar a la página más
+    // cercana, MUEVE el ejercicio que se venía arrastrando a esa posición
+    // dentro de data.templates[currentDay] — activeExerciseId no cambia
+    // (sigue siendo el mismo ejercicio, ahora en otro lugar de la lista).
+    // renderExercises() reconstruye el carrusel en el nuevo orden y su
+    // propio goToExercisePage(activeExerciseId) final deja el scroll ya
+    // posicionado ahí, sin animación extra.
+    function settleReorder(){
+      var w = pageWidth();
+      var startIdx = Math.round(startScrollLeft / w);
+      var list = data.templates[currentDay] || [];
+      var targetIdx = Math.max(0, Math.min(computeTargetIdx(), list.length - 1));
+      if(targetIdx !== startIdx && list[startIdx]){
+        var moved = list.splice(startIdx, 1)[0];
+        list.splice(targetIdx, 0, moved);
+        saveData();
+        renderExercises();
+      } else {
+        var target = pageAt(startIdx);
+        if(target) animateScrollLeft(target.left);
+      }
     }
 
     // El arrastre horizontal es 100% manual (scrollLeft asignado a mano en
@@ -2520,6 +2686,22 @@
       var t = ev.touches[0];
       startX = t.clientX; startY = t.clientY;
       lastX = t.clientX; lastT = performance.now(); velX = 0;
+
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      var list = data.templates[currentDay] || [];
+      var pressedPage = ev.target.closest && ev.target.closest(".ex-page");
+      if(!settling && ev.touches.length === 1 && list.length > 1 &&
+         pressedPage && !isOnInteractiveChild(ev.target)){
+        longPressTimer = setTimeout(function(){
+          longPressTimer = null;
+          reorderMode = true;
+          mode = "h"; // salta directo al modo arrastre, sin esperar LOCK_PX
+          reorderPage = pressedPage;
+          reorderPage.classList.add("reordering");
+          if(navigator.vibrate) navigator.vibrate(15);
+        }, LONG_PRESS_MS);
+      }
     }, { passive:true });
 
     carousel.addEventListener("touchmove", function(ev){
@@ -2527,6 +2709,10 @@
       if(mode === null){
         var dx0 = t.clientX - startX, dy0 = t.clientY - startY;
         if(Math.abs(dx0) < LOCK_PX && Math.abs(dy0) < LOCK_PX) return;
+        // el dedo se movió de verdad antes de cumplirse el long-press: es
+        // un swipe común, no un mantener-apretado — se cancela el timer y
+        // sigue exactamente el mismo camino que siempre.
+        if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer = null; }
         mode = Math.abs(dx0) > Math.abs(dy0) ? "h" : "v";
       }
       if(mode !== "h") return;
@@ -2540,10 +2726,27 @@
     }, { passive:false });
 
     carousel.addEventListener("touchend", function(){
-      if(mode === "h") settle();
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      if(reorderMode){
+        reorderMode = false;
+        if(reorderPage){ reorderPage.classList.remove("reordering"); reorderPage = null; }
+        settleReorder();
+      } else if(mode === "h"){
+        settle();
+      }
       mode = null;
     }, { passive:true });
-    carousel.addEventListener("touchcancel", function(){ mode = null; }, { passive:true });
+    carousel.addEventListener("touchcancel", function(){
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      if(reorderMode){
+        reorderMode = false;
+        if(reorderPage){ reorderPage.classList.remove("reordering"); reorderPage = null; }
+        animateScrollLeft(startScrollLeft);
+      }
+      mode = null;
+    }, { passive:true });
 
     // Respaldo para mouse/trackpad (no dispara eventos táctiles): asienta
     // por posición después de una pausa en el scroll.
