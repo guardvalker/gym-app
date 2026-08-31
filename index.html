@@ -91,10 +91,14 @@
     overscroll-behavior-y:none;
   }
   header{
+    /* El padding de safe-area va en el header, no en un ancestro: al ser
+       sticky, una vez pegado arriba se ancla a top:0 del viewport real e
+       ignora el padding-top de cualquier contenedor padre (mismo patrón
+       que lista-super). */
     position:sticky; top:0; z-index:20;
     background:linear-gradient(180deg, var(--top-wash), var(--bg));
     transition:background-color .2s;
-    padding:10px 16px;
+    padding:calc(10px + env(safe-area-inset-top, 0px)) 16px 10px 16px;
     border-bottom:1px solid var(--border);
   }
   h1{
@@ -1184,7 +1188,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.10.0";
+  var APP_VERSION = "1.10.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1292,6 +1296,9 @@
     "1.10.0": [
       "Nuevo botón de notas (al lado de editar) en cada ejercicio, para anotar cosas como el agarre o cuidados con alguna lesión.",
       "Ahora podés reordenar tus ejercicios: mantené apretado en cualquier parte libre de la tarjeta (no en los botones ni en las ruedas) y arrastrá para moverlo antes o después de otro."
+    ],
+    "1.10.1": [
+      "Arreglamos que en iPhone el encabezado de arriba quedara pegado al notch/reloj, tapado por los íconos del sistema."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
