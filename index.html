@@ -327,6 +327,86 @@
     letter-spacing:.05em;
     color:var(--text-dim);
   }
+
+  /* ---------- Home: toggle "Grupos musculares" / "Por días" ---------- */
+  .mode-tabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:12px;
+  }
+  .mode-tab{
+    flex:1;
+    padding:10px 8px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--bg-elev-2);
+    color:var(--text-dim);
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .mode-tab.active{ background:var(--accent-grad); border-color:transparent; color:#fff; }
+  .mode-tab:active{ opacity:.85; }
+  .mode-caption{
+    font-size:12.5px;
+    line-height:1.4;
+    color:var(--text-dim);
+    margin:-2px 0 14px 0;
+  }
+
+  /* ---------- Home: por días (rutinas propias, cualquier combinación) ---------- */
+  .custom-day-card{ position:relative; padding:16px 10px 14px 10px; }
+  .custom-day-nav{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    width:100%;
+    background:none;
+    border:none;
+    font-family:inherit;
+    padding:0;
+    cursor:pointer;
+    text-align:center;
+  }
+  .custom-day-nav:active{ opacity:.85; }
+  /* Doble clase (.custom-day-card .custom-day-edit) a propósito: necesita
+     más especificidad que .icon-btn (definida más abajo en la hoja) para
+     que su padding:0/border-radius:50%/tamaño fijo no queden pisados por
+     los de .icon-btn, que se aplica junto en el mismo botón. */
+  .custom-day-card .custom-day-edit{
+    position:absolute;
+    top:6px;
+    right:6px;
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    background:var(--bg-elev-2);
+    padding:0;
+  }
+  .custom-day-add{
+    border-style:dashed;
+    background:transparent;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    color:var(--text-dim);
+  }
+  .custom-day-add-icon{
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    border:1px dashed var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    font-weight:700;
+    line-height:1;
+    color:var(--text-dim);
+  }
+  .icon-dumbbell-placeholder{ width:56px; height:56px; color:var(--text-dim); opacity:.5; }
   .back-row{
     display:flex;
     align-items:center;
@@ -969,7 +1049,13 @@
 </header>
 
 <main id="groupsView">
+  <div class="mode-tabs" id="homeModeTabs">
+    <button type="button" class="mode-tab active" id="modeTabGrupos" data-mode="grupos">Grupos musculares</button>
+    <button type="button" class="mode-tab" id="modeTabDias" data-mode="dias">Por días</button>
+  </div>
+  <div class="mode-caption hidden" id="modeCaption">Armá tus propios días combinando los ejercicios que quieras, de cualquier grupo muscular.</div>
   <div class="group-grid" id="groupCards"></div>
+  <div class="group-grid hidden" id="customDayCards"></div>
 </main>
 
 <main id="trainView" class="hidden">
@@ -977,6 +1063,8 @@
   <div class="back-row">
     <button class="back-btn" id="trainBackBtn">‹ Grupos musculares</button>
   </div>
+
+  <div class="day-title hidden" id="trainDayTitle"></div>
 
   <div class="body-card">
     <div class="body-caption">
@@ -1177,6 +1265,27 @@
   </div>
 </div>
 
+<!-- Editor de día personalizado (modo "Por días") -->
+<div class="modal-overlay hidden" id="dayEditorOverlay">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title" id="dayEditorTitle">Nuevo día</div>
+      <button class="icon-btn" id="dayEditorClose">✕</button>
+    </div>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Nombre del día</label>
+      <input type="text" id="dayEditorName" placeholder="Ej: Empuje, Tirón, Día 1...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger hidden" id="dayEditorDelete">Eliminar día</button>
+      <div class="modal-actions-right">
+        <button class="btn-secondary" id="dayEditorCancel">Cancelar</button>
+        <button class="btn-primary" id="dayEditorSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
 <script src="sync.js"></script>
@@ -1188,7 +1297,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.10.1";
+  var APP_VERSION = "1.11.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1299,6 +1408,11 @@
     ],
     "1.10.1": [
       "Arreglamos que en iPhone el encabezado de arriba quedara pegado al notch/reloj, tapado por los íconos del sistema."
+    ],
+    "1.11.0": [
+      "Nuevo modo \"Por días\" en la pantalla de inicio, junto al de \"Grupos musculares\" de siempre: armá tus propios días de rutina combinando cualquier ejercicio, de cualquier grupo (útil para rutinas tipo empuje/tirón/piernas, torso/pierna, o simplemente Día 1/Día 2/Día 3).",
+      "Cada día propio tiene su ícono de cuerpo resaltado automáticamente según los ejercicios que le vayas cargando, igual que las tarjetas de grupo muscular de siempre.",
+      "Se puede crear, renombrar y eliminar días propios desde el lápiz de cada tarjeta; borrar un día no borra el historial de entrenamientos ya guardados con ese día."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1341,8 +1455,10 @@
 
   var ZONE_LABELS = {};
   var PATH_TO_ZONE = { front:{}, back:{} };
+  var LOGICAL_ZONES_BY_ID = {};
   LOGICAL_ZONES.forEach(function(z){
     ZONE_LABELS[z.id] = z.label;
+    LOGICAL_ZONES_BY_ID[z.id] = z;
     z.paths.forEach(function(p){ PATH_TO_ZONE[z.view][p] = z.id; });
   });
 
@@ -1503,6 +1619,16 @@
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
+  // Busca un día por id tanto en los 5 fijos (DAYS) como en los que el
+  // usuario creó en modo "Por días" (data.customDays) — todo lo que en algún
+  // momento necesita label/short de un día (guardar entrenamiento, header de
+  // la pantalla de día) pasa por acá en vez de asumir que siempre está en DAYS.
+  function getDayMeta(dayId){
+    var fixed = DAYS.filter(function(d){ return d.id === dayId; })[0];
+    if(fixed) return fixed;
+    return (data.customDays || []).filter(function(d){ return d.id === dayId; })[0] || null;
+  }
+
   function libraryTemplate(dayId){
     return (EXERCISE_LIBRARY[dayId] || []).map(function(e){
       return { id: e.id, name: e.name, series: e.series, reps: e.reps, weight: e.weight, muscles: cloneMuscles(e.muscles) };
@@ -1541,6 +1667,13 @@
     });
   }
 
+  // Modo "Por días": a los datos guardados antes de esta versión (o que
+  // llegan de Supabase desde un dispositivo con una versión vieja de la
+  // app) les falta el array — se lo agrega vacío. Idempotente.
+  function ensureCustomDays(parsed){
+    if(!parsed.customDays) parsed.customDays = [];
+  }
+
   function loadData(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -1549,12 +1682,13 @@
         migrateEspaldaBaja(parsed);
         migrateMuscleZoneIds(parsed);
         migrateIntensityToWeight(parsed);
+        ensureCustomDays(parsed);
         return parsed;
       }
     }catch(e){}
     var templates = {};
     DAYS.forEach(function(d){ templates[d.id] = libraryTemplate(d.id); });
-    return { templates: templates, logs: [] };
+    return { templates: templates, logs: [], customDays: [] };
   }
 
   var data = loadData();
@@ -1584,6 +1718,17 @@
   var currentDay = DAYS[0].id;
   var currentView = "groups";
   var activeExerciseId = null;
+
+  // Qué pestaña de la home está activa: "grupos" (las 5 tarjetas fijas de
+  // siempre) o "dias" (rutinas propias del usuario, cualquier combinación).
+  // Se recuerda entre sesiones como el tema, pero no viaja por Supabase —
+  // es una preferencia de este dispositivo, no un dato de la rutina.
+  var HOME_MODE_KEY = "gymTrackerHomeMode_v1";
+  var homeMode = "grupos";
+  try{
+    var savedMode = localStorage.getItem(HOME_MODE_KEY);
+    if(savedMode === "dias") homeMode = "dias";
+  }catch(e){}
 
   // ---------- Comparativa de registros ----------
   var compareMode = false;
@@ -2268,6 +2413,16 @@
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
     currentView = "day";
+
+    var meta = getDayMeta(dayId);
+    var titleEl = document.getElementById("trainDayTitle");
+    titleEl.textContent = meta ? meta.label : "";
+    titleEl.classList.toggle("hidden", !meta);
+    // Solo se puede haber llegado acá desde la pestaña activa de la home,
+    // así que homeMode en este instante ya dice de dónde venimos.
+    document.getElementById("trainBackBtn").textContent =
+      homeMode === "dias" ? "‹ Por días" : "‹ Grupos musculares";
+
     pushViewState("day");
     showView();
   }
@@ -2305,6 +2460,214 @@
       wrap.appendChild(card);
     });
   }
+
+  // ---------- Home: por días (rutinas propias) ----------
+
+  // A diferencia de los 5 grupos fijos (con su ícono cableado a mano en
+  // GROUP_ICONS), un día propio puede combinar cualquier ejercicio de
+  // cualquier zona — así que el ícono se arma solo, juntando los músculos
+  // reales de los ejercicios que ese día tiene cargados en este momento.
+  function collectMusclesFromExercises(exs){
+    var byView = { front:{}, back:{} };
+    (exs || []).forEach(function(ex){
+      if(!ex.muscles) return;
+      ["primary","secondary","tertiary"].forEach(function(tier){
+        (ex.muscles[tier] || []).forEach(function(zoneId){
+          var zone = LOGICAL_ZONES_BY_ID[zoneId];
+          if(!zone) return;
+          zone.paths.forEach(function(p){ byView[zone.view][p] = true; });
+        });
+      });
+    });
+    return byView;
+  }
+
+  function buildDynamicGroupIcon(exs, color){
+    var byView = collectMusclesFromExercises(exs);
+    var views = [];
+    if(Object.keys(byView.front).length) views.push({ view:"front", paths:Object.keys(byView.front) });
+    if(Object.keys(byView.back).length) views.push({ view:"back", paths:Object.keys(byView.back) });
+    if(!views.length) return null; // día recién creado, o solo con ejercicios sin músculo (ej. cardio)
+    if(views.length === 1) return buildAnatomicalIcon(views[0].view, views[0].paths, color);
+    var wrap = document.createElement("div");
+    wrap.className = "group-icon-dual";
+    views.forEach(function(v){ wrap.appendChild(buildAnatomicalIcon(v.view, v.paths, color)); });
+    return wrap;
+  }
+
+  // Placeholder para un día sin ejercicios (o solo cardio): la mancuerna del
+  // header, agrandada — mismo ícono que ya usa la app, ninguno nuevo.
+  function buildDumbbellPlaceholderIcon(){
+    var svgns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(svgns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.5");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("class", "icon-dumbbell-placeholder");
+    svg.innerHTML =
+      '<line x1="7.5" y1="12" x2="16.5" y2="12"></line>' +
+      '<line x1="6" y1="8.5" x2="6" y2="15.5"></line>' +
+      '<line x1="18" y1="8.5" x2="18" y2="15.5"></line>' +
+      '<rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect>' +
+      '<rect x="19" y="9" width="3.5" height="6" rx="1"></rect>';
+    return svg;
+  }
+
+  var PENCIL_SVG =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M12 20h9"></path>' +
+    '<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path>' +
+    '</svg>';
+
+  function renderCustomDaysView(){
+    var wrap = document.getElementById("customDayCards");
+    wrap.innerHTML = "";
+    var days = data.customDays || [];
+
+    days.forEach(function(d){
+      var count = (data.templates[d.id] || []).length;
+
+      var card = document.createElement("div");
+      card.className = "group-card custom-day-card";
+
+      var nav = document.createElement("button");
+      nav.type = "button";
+      nav.className = "custom-day-nav";
+      nav.addEventListener("click", function(){ goToDay(d.id); });
+
+      var iconWrap = document.createElement("div");
+      iconWrap.className = "group-card-icon";
+      var icon = buildDynamicGroupIcon(data.templates[d.id], "var(--accent)") || buildDumbbellPlaceholderIcon();
+      iconWrap.appendChild(icon);
+
+      var body = document.createElement("div");
+      body.className = "group-card-body";
+      var label = document.createElement("div");
+      label.className = "group-card-label";
+      label.textContent = d.label;
+      var countEl = document.createElement("div");
+      countEl.className = "group-card-count";
+      countEl.textContent = count + (count === 1 ? " ejercicio" : " ejercicios");
+      body.appendChild(label);
+      body.appendChild(countEl);
+
+      nav.appendChild(iconWrap);
+      nav.appendChild(body);
+
+      var editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "custom-day-edit icon-btn";
+      editBtn.title = "Editar " + d.label;
+      editBtn.setAttribute("aria-label", "Editar " + d.label);
+      editBtn.innerHTML = PENCIL_SVG;
+      editBtn.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        openDayEditor(d);
+      });
+
+      card.appendChild(nav);
+      card.appendChild(editBtn);
+      wrap.appendChild(card);
+    });
+
+    var addCard = document.createElement("button");
+    addCard.type = "button";
+    addCard.className = "group-card custom-day-add";
+    var addIcon = document.createElement("div");
+    addIcon.className = "custom-day-add-icon";
+    addIcon.textContent = "+";
+    var addLabel = document.createElement("div");
+    addLabel.className = "group-card-label";
+    addLabel.textContent = "Nuevo día";
+    addCard.appendChild(addIcon);
+    addCard.appendChild(addLabel);
+    addCard.addEventListener("click", function(){ openDayEditor(null); });
+    wrap.appendChild(addCard);
+  }
+
+  // Muestra la pestaña activa (tabs + caption + qué grid se ve) y renderiza
+  // su contenido. Separado de showView() porque acá adentro no hay que tocar
+  // nada de las otras pantallas (train/history/compare).
+  function renderHomeMode(){
+    document.getElementById("modeTabGrupos").classList.toggle("active", homeMode === "grupos");
+    document.getElementById("modeTabDias").classList.toggle("active", homeMode === "dias");
+    document.getElementById("groupCards").classList.toggle("hidden", homeMode !== "grupos");
+    document.getElementById("customDayCards").classList.toggle("hidden", homeMode !== "dias");
+    document.getElementById("modeCaption").classList.toggle("hidden", homeMode !== "dias");
+    if(homeMode === "dias") renderCustomDaysView(); else renderGroupsView();
+  }
+
+  document.getElementById("homeModeTabs").addEventListener("click", function(ev){
+    var btn = ev.target.closest(".mode-tab");
+    if(!btn) return;
+    var mode = btn.dataset.mode;
+    if(mode === homeMode) return;
+    homeMode = mode;
+    try{ localStorage.setItem(HOME_MODE_KEY, homeMode); }catch(e){}
+    renderHomeMode();
+  });
+
+  // ---------- Editor de día (crear/renombrar/eliminar un día propio) ----------
+
+  var dayEditorState = { id:null };
+
+  function openDayEditor(day){
+    dayEditorState.id = day ? day.id : null;
+    document.getElementById("dayEditorTitle").textContent = day ? "Editar día" : "Nuevo día";
+    document.getElementById("dayEditorName").value = day ? day.label : "";
+    document.getElementById("dayEditorDelete").classList.toggle("hidden", !day);
+    document.getElementById("dayEditorOverlay").classList.remove("hidden");
+    pushModalState();
+    document.getElementById("dayEditorName").focus();
+  }
+
+  function closeDayEditor(){
+    history.back();
+  }
+
+  function saveDayEditor(){
+    var name = document.getElementById("dayEditorName").value.trim();
+    if(!name){ showToast("Ponele un nombre al día"); return; }
+    if(dayEditorState.id){
+      var day = (data.customDays || []).filter(function(d){ return d.id === dayEditorState.id; })[0];
+      if(day) day.label = name;
+    } else {
+      var id = uid();
+      data.customDays = data.customDays || [];
+      data.customDays.push({ id:id, label:name });
+      data.templates[id] = [];
+    }
+    saveData();
+    closeDayEditor();
+    renderCustomDaysView();
+  }
+
+  function deleteDayEditor(){
+    var id = dayEditorState.id;
+    if(!id) return;
+    var name = document.getElementById("dayEditorName").value.trim() || "este día";
+    showConfirm("¿Eliminar \"" + name + "\"? Se borran sus ejercicios (los entrenamientos ya guardados en el historial no se tocan).", "Eliminar", function(){
+      data.customDays = (data.customDays || []).filter(function(d){ return d.id !== id; });
+      delete data.templates[id];
+      saveData();
+      closeDayEditor();
+      renderCustomDaysView();
+    });
+  }
+
+  document.getElementById("dayEditorClose").addEventListener("click", closeDayEditor);
+  document.getElementById("dayEditorCancel").addEventListener("click", closeDayEditor);
+  document.getElementById("dayEditorSave").addEventListener("click", saveDayEditor);
+  document.getElementById("dayEditorDelete").addEventListener("click", deleteDayEditor);
+  document.getElementById("dayEditorOverlay").addEventListener("click", function(ev){
+    if(ev.target === this) closeDayEditor();
+  });
+  document.getElementById("dayEditorName").addEventListener("keydown", function(ev){
+    if(ev.key === "Enter") saveDayEditor();
+  });
 
   // Construye la página completa de UN ejercicio (nombre + editar/eliminar,
   // series/peso/repeticiones, botón de intensidad) para el carrusel. Cada
@@ -2772,7 +3135,7 @@
   document.getElementById("saveDate").value = todayISO();
 
   document.getElementById("saveBtn").addEventListener("click", function(){
-    var day = DAYS.filter(function(d){ return d.id === currentDay; })[0];
+    var day = getDayMeta(currentDay);
     var exs = data.templates[currentDay] || [];
     if(exs.length === 0){
       showToast("Agregá al menos un ejercicio");
@@ -3172,7 +3535,7 @@
     document.getElementById("compareBtn").classList.toggle("active", compareMode);
     updateCompareBar();
 
-    if(currentView === "groups") renderGroupsView();
+    if(currentView === "groups") renderHomeMode();
     else if(currentView === "day") renderExercises();
     else if(currentView === "history") renderHistory();
     else if(currentView === "compare") renderCompareView();
@@ -3274,6 +3637,7 @@
   function applyRemoteData(payload){
     applyingRemoteUpdate = true;
     data = payload;
+    ensureCustomDays(data);
     saveData();
     applyingRemoteUpdate = false;
     var exs = data.templates[currentDay] || [];
