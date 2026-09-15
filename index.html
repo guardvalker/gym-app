@@ -431,6 +431,7 @@
   .back-row{
     display:flex;
     align-items:center;
+    justify-content:space-between;
     margin-bottom:14px;
   }
   .back-btn{
@@ -447,6 +448,23 @@
     cursor:pointer;
   }
   .back-btn:active{ opacity:.7; }
+  .variant-switch{
+    display:flex;
+    align-items:center;
+    gap:2px;
+  }
+  .variant-select{
+    background:var(--bg-elev);
+    border:1px solid var(--border);
+    color:var(--current-group-color);
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:600;
+    padding:5px 8px;
+    border-radius:8px;
+    max-width:38vw;
+  }
+  .variant-delete{ color:var(--danger); }
 
   .card{
     background:var(--bg-elev);
@@ -1192,6 +1210,10 @@ try{
 
   <div class="back-row">
     <button class="back-btn" id="trainBackBtn">‹ Grupos musculares</button>
+    <div class="variant-switch hidden" id="variantSwitcherWrap">
+      <select id="variantSelect" class="variant-select" aria-label="Elegir versión"></select>
+      <button type="button" class="icon-btn variant-delete hidden" id="variantDeleteBtn" title="Eliminar esta versión importada" aria-label="Eliminar esta versión importada"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
+    </div>
   </div>
 
   <div class="day-title hidden" id="trainDayTitle"></div>
@@ -1463,7 +1485,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.12.4";
+  var APP_VERSION = "1.13.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1599,6 +1621,9 @@ try{
     ],
     "1.12.4": [
       "La barra de estado del celular (hora, batería) queda fija en oscuro sin importar el tema de la app: probamos varias formas de que siguiera al modo claro/oscuro, pero en Android instalado como ícono el fondo de esa barra no responde a nada de lo que la app puede controlar — se queda con el color de instalación para siempre. Dejarla siempre oscura es lo único que garantiza que las letras (esas sí cambian) nunca queden negro sobre negro."
+    ],
+    "1.13.0": [
+      "Importar ya no reemplaza tu rutina: ahora agrega lo del archivo a lo que ya tenías. Un grupo muscular fijo (ej. \"Piernas\") importado se suma como una versión nueva de ese grupo, elegible desde un selector \"Original\"/\"Importado\" arriba a la derecha en la pantalla de ese grupo (con un botón para borrar esa versión si ya no la querés). Un día propio (\"Por días\") importado se agrega como un día nuevo, con \"(importado)\" sumado al nombre si ya tenías uno igual."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1799,19 +1824,42 @@ try{
   }
 
   function applyGroupColor(dayId){
-    document.documentElement.style.setProperty("--current-group-color", groupColorCss(dayId));
+    document.documentElement.style.setProperty("--current-group-color", groupColorCss(originGroupId(dayId)));
   }
 
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
-  // Busca un día por id tanto en los 5 fijos (DAYS) como en los que el
-  // usuario creó en modo "Por días" (data.customDays) — todo lo que en algún
-  // momento necesita label/short de un día (guardar entrenamiento, header de
-  // la pantalla de día) pasa por acá en vez de asumir que siempre está en DAYS.
+  // Para un id de día, devuelve el id del grupo muscular fijo "dueño" de esa
+  // pantalla: el propio id si ya es uno de los 5 DAYS, el groupId de su
+  // entrada en data.groupVariants si es una versión importada de un grupo
+  // fijo, o el propio id sin cambios si es un día propio ("Por días") —
+  // estos últimos no tienen "grupo dueño", son su propia entidad. Se usa
+  // para que el color/ícono/título de la pantalla de una versión importada
+  // combine con los de su grupo original en vez de caer al acento genérico.
+  function originGroupId(dayId){
+    if(DAYS.some(function(d){ return d.id === dayId; })) return dayId;
+    var variant = (data.groupVariants || []).filter(function(v){ return v.id === dayId; })[0];
+    return variant ? variant.groupId : dayId;
+  }
+
+  // Busca un día por id: entre los 5 fijos (DAYS), entre las versiones
+  // importadas de un grupo fijo (data.groupVariants, devuelve un label que
+  // combina el nombre del grupo original con el de la versión, ej. "Piernas
+  // (Importado)") o entre los días propios del usuario (data.customDays) —
+  // todo lo que en algún momento necesita label/short de un día (guardar
+  // entrenamiento, header de la pantalla de día) pasa por acá en vez de
+  // asumir que siempre está en DAYS.
   function getDayMeta(dayId){
     var fixed = DAYS.filter(function(d){ return d.id === dayId; })[0];
     if(fixed) return fixed;
+    var variant = (data.groupVariants || []).filter(function(v){ return v.id === dayId; })[0];
+    if(variant){
+      var origin = DAYS.filter(function(d){ return d.id === variant.groupId; })[0];
+      var base = origin ? (origin.short || origin.label) : "";
+      var combined = base + " (" + variant.label + ")";
+      return { id: variant.id, label: combined, short: combined };
+    }
     return (data.customDays || []).filter(function(d){ return d.id === dayId; })[0] || null;
   }
 
@@ -1860,6 +1908,16 @@ try{
     if(!parsed.customDays) parsed.customDays = [];
   }
 
+  // Versiones importadas de un grupo muscular fijo (ver la sección de
+  // importación más abajo): cada entrada es {id, groupId, label}, donde
+  // `id` es una clave más en data.templates (igual que un día propio) y
+  // `groupId` apunta a cuál de los 5 DAYS fijos es la "original" de la que
+  // esta es una variante. A los datos guardados antes de esta versión les
+  // falta el array — se lo agrega vacío. Idempotente.
+  function ensureGroupVariants(parsed){
+    if(!parsed.groupVariants) parsed.groupVariants = [];
+  }
+
   function loadData(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -1869,12 +1927,13 @@ try{
         migrateMuscleZoneIds(parsed);
         migrateIntensityToWeight(parsed);
         ensureCustomDays(parsed);
+        ensureGroupVariants(parsed);
         return parsed;
       }
     }catch(e){}
     var templates = {};
     DAYS.forEach(function(d){ templates[d.id] = libraryTemplate(d.id); });
-    return { templates: templates, logs: [], customDays: [] };
+    return { templates: templates, logs: [], customDays: [], groupVariants: [] };
   }
 
   var data = loadData();
@@ -2655,25 +2714,107 @@ try{
     return wrap;
   }
 
-  function goToDay(dayId){
+  // Deja lista la pantalla de día (título, color, back-label, selector de
+  // versión) para `dayId` sin tocar el historial de navegación — usado tanto
+  // por goToDay() (navegación real, sí apila estado) como por
+  // switchDayVariant() (cambiar de versión sin moverse de pantalla, no debe
+  // apilar nada nuevo: es el mismo tipo de "no apilar reactivamente" que ya
+  // rige el resto de la navegación de esta app, ver el comentario grande de
+  // más abajo sobre pushViewState/pushModalState).
+  function loadDayScreen(dayId){
     currentDay = dayId;
     applyGroupColor(dayId);
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
-    currentView = "day";
 
-    var meta = getDayMeta(dayId);
+    // El título arriba del diagrama siempre muestra el nombre del grupo/día
+    // "dueño" (ej. "Piernas"), sea cual sea la versión activa — cuál versión
+    // está mirando se indica aparte, en el selector que arma
+    // renderVariantSwitcher() (no acá, para no duplicar la info en dos lados).
+    var origin = originGroupId(dayId);
+    var meta = getDayMeta(origin);
     var titleEl = document.getElementById("trainDayTitle");
-    titleEl.textContent = meta ? meta.label : "";
+    titleEl.textContent = meta ? (meta.short || meta.label) : "";
     titleEl.classList.toggle("hidden", !meta);
     // Solo se puede haber llegado acá desde la pestaña activa de la home,
     // así que homeMode en este instante ya dice de dónde venimos.
     document.getElementById("trainBackBtn").textContent =
       homeMode === "dias" ? "‹ Por días" : "‹ Grupos musculares";
 
+    renderVariantSwitcher(dayId);
+  }
+
+  function goToDay(dayId){
+    loadDayScreen(dayId);
+    currentView = "day";
     pushViewState("day");
     showView();
   }
+
+  // Cambiar de versión (selector "Original"/"Importado…", o volver a
+  // "Original" tras borrar una versión) es un cambio de datos DENTRO de la
+  // misma pantalla, no una navegación nueva — a propósito no llama a
+  // goToDay()/pushViewState(): si empujara un estado de historial nuevo cada
+  // vez, un atrás del usuario después de cambiar de versión quedaría
+  // atrapado un nivel de más antes de volver a la home (el mismo tipo de bug
+  // que costó varias vueltas resolver la primera vez, ver el comentario
+  // grande sobre navegación más abajo).
+  function switchDayVariant(dayId){
+    loadDayScreen(dayId);
+    renderExercises();
+  }
+
+  // Selector de versión (arriba a la derecha, misma fila que "‹ Grupos
+  // musculares"): solo aparece si esta pantalla es un grupo muscular fijo
+  // (no un día propio) Y existe al menos una versión importada para ese
+  // grupo — si nunca se importó nada, no hay nada entre qué elegir y el
+  // selector se mantiene oculto, exactamente como estaba antes de esta
+  // función existir.
+  function renderVariantSwitcher(dayId){
+    var origin = originGroupId(dayId);
+    var isFixedGroup = DAYS.some(function(d){ return d.id === origin; });
+    var variants = isFixedGroup
+      ? (data.groupVariants || []).filter(function(v){ return v.groupId === origin; })
+      : [];
+    var wrap = document.getElementById("variantSwitcherWrap");
+    if(!isFixedGroup || variants.length === 0){
+      wrap.classList.add("hidden");
+      return;
+    }
+    wrap.classList.remove("hidden");
+    var sel = document.getElementById("variantSelect");
+    sel.innerHTML = "";
+    var optOriginal = document.createElement("option");
+    optOriginal.value = origin;
+    optOriginal.textContent = "Original";
+    sel.appendChild(optOriginal);
+    variants.forEach(function(v){
+      var opt = document.createElement("option");
+      opt.value = v.id;
+      opt.textContent = v.label;
+      sel.appendChild(opt);
+    });
+    sel.value = dayId;
+    document.getElementById("variantDeleteBtn").classList.toggle("hidden", dayId === origin);
+  }
+
+  document.getElementById("variantSelect").addEventListener("change", function(ev){
+    switchDayVariant(ev.target.value);
+  });
+
+  document.getElementById("variantDeleteBtn").addEventListener("click", function(){
+    var variantId = currentDay;
+    var origin = originGroupId(variantId);
+    if(variantId === origin) return; // no debería poder pasar, el botón está oculto en ese caso
+    var variant = (data.groupVariants || []).filter(function(v){ return v.id === variantId; })[0];
+    var label = variant ? variant.label : "esta versión";
+    showConfirm("¿Eliminar la versión \"" + label + "\"? Se borran sus ejercicios (los entrenamientos ya guardados en el historial no se tocan).", "Eliminar", function(){
+      data.groupVariants = (data.groupVariants || []).filter(function(v){ return v.id !== variantId; });
+      delete data.templates[variantId];
+      saveData();
+      switchDayVariant(origin);
+    });
+  });
 
   function renderGroupsView(){
     var wrap = document.getElementById("groupCards");
@@ -3940,7 +4081,8 @@ try{
     var scoped = {
       templates: {},
       logs: data.logs.filter(function(l){ return l.dayId === dayId; }),
-      customDays: (data.customDays || []).filter(function(d){ return d.id === dayId; })
+      customDays: (data.customDays || []).filter(function(d){ return d.id === dayId; }),
+      groupVariants: (data.groupVariants || []).filter(function(v){ return v.id === dayId; })
     };
     scoped.templates[dayId] = data.templates[dayId] || [];
     downloadJSON(scoped, "mi-rutina-" + slug(meta.short || meta.label) + "-" + todayISO() + ".json");
@@ -4004,6 +4146,20 @@ try{
       wrap.appendChild(buildExportRow(d.id, d.short || d.label, groupColorCss(d.id), count, "ejercicio", "ejercicios"));
     });
 
+    var variants = data.groupVariants || [];
+    if(variants.length){
+      var subtVariants = document.createElement("div");
+      subtVariants.className = "export-subtitle";
+      subtVariants.textContent = "Versiones importadas";
+      wrap.appendChild(subtVariants);
+      variants.forEach(function(v){
+        var count = (data.templates[v.id] || []).length;
+        var origin = DAYS.filter(function(d){ return d.id === v.groupId; })[0];
+        var label = (origin ? (origin.short || origin.label) : "") + " — " + v.label;
+        wrap.appendChild(buildExportRow(v.id, label, groupColorCss(v.groupId), count, "ejercicio", "ejercicios"));
+      });
+    }
+
     var customDays = data.customDays || [];
     if(customDays.length){
       var subtDias = document.createElement("div");
@@ -4015,6 +4171,122 @@ try{
         wrap.appendChild(buildExportRow(d.id, d.short || d.label, "var(--accent)", count, "ejercicio", "ejercicios"));
       });
     }
+  }
+
+  // A un array de ejercicios importado se le regeneran los ids: son solo
+  // identificadores internos para el carrusel/reordenar, no algo que el
+  // usuario vea, así que no hay razón para arriesgar que choquen con los que
+  // ya existen en la app (podría pasar si el archivo se exportó y
+  // reimportó el mismo día, ya que uid() se basa en el reloj).
+  function cloneExercisesWithFreshIds(exs){
+    return (exs || []).map(function(e){
+      var clone = JSON.parse(JSON.stringify(e));
+      clone.id = uid();
+      return clone;
+    });
+  }
+
+  // "Importado", "Importado 2", "Importado 3"... — nunca dos versiones del
+  // mismo grupo con el mismo nombre visible.
+  function uniqueVariantLabel(groupId, baseLabel){
+    var existing = (data.groupVariants || []).filter(function(v){ return v.groupId === groupId; })
+      .map(function(v){ return v.label.trim().toLowerCase(); });
+    if(existing.indexOf(baseLabel.trim().toLowerCase()) === -1) return baseLabel;
+    var n = 2;
+    while(existing.indexOf((baseLabel + " " + n).trim().toLowerCase()) !== -1) n++;
+    return baseLabel + " " + n;
+  }
+
+  // Si ya hay un día propio con ese nombre, se suma "(importado)" para
+  // diferenciarlo (y un número más si hiciera falta) — nunca se pisa el que
+  // ya existía.
+  function uniqueCustomDayLabel(baseLabel){
+    var existing = (data.customDays || []).map(function(d){ return d.label.trim().toLowerCase(); });
+    if(existing.indexOf(baseLabel.trim().toLowerCase()) === -1) return baseLabel;
+    var candidate = baseLabel + " (importado)";
+    if(existing.indexOf(candidate.trim().toLowerCase()) === -1) return candidate;
+    var n = 2;
+    while(existing.indexOf((candidate + " " + n).trim().toLowerCase()) !== -1) n++;
+    return candidate + " " + n;
+  }
+
+  // Registros de historial del archivo importado que pertenecen a
+  // `oldDayId`, re-apuntados al id/label nuevos y locales (mismo motivo que
+  // cloneExercisesWithFreshIds: nunca reusar un id del archivo tal cual).
+  function importLogsFor(parsedLogs, oldDayId, newDayId, newDayLabel){
+    return (parsedLogs || []).filter(function(l){ return l.dayId === oldDayId; }).map(function(l){
+      var clone = JSON.parse(JSON.stringify(l));
+      clone.id = uid();
+      clone.dayId = newDayId;
+      clone.dayLabel = newDayLabel;
+      return clone;
+    });
+  }
+
+  // Importar agrega lo del archivo a lo que ya hay, nunca reemplaza nada:
+  // un grupo muscular fijo (ej. "piernas") del archivo se suma como una
+  // VERSIÓN nueva de ese grupo (data.groupVariants — elegible después desde
+  // el selector de la pantalla de día) en vez de pisar la rutina que el
+  // usuario ya armó ahí, y un día propio ("Por días") se suma como un día
+  // nuevo, con "(importado)" agregado al nombre si ya existía uno igual.
+  // Devuelve {groups, days} para armar el toast final.
+  function mergeImportedData(parsed){
+    var addedGroups = 0, addedDays = 0;
+    var handledKeys = {};
+
+    // 1) Versiones de grupo declaradas explícitamente (archivo exportado
+    // con esta misma versión de la app, sea backup completo o acotado).
+    (parsed.groupVariants || []).forEach(function(entry){
+      var isRealGroup = DAYS.some(function(d){ return d.id === entry.groupId; });
+      if(!isRealGroup || !parsed.templates || !parsed.templates[entry.id]) return;
+      handledKeys[entry.id] = true;
+      var newId = entry.groupId + "_v_" + uid();
+      var label = uniqueVariantLabel(entry.groupId, entry.label || "Importado");
+      data.templates[newId] = cloneExercisesWithFreshIds(parsed.templates[entry.id]);
+      data.groupVariants.push({ id: newId, groupId: entry.groupId, label: label });
+      var meta = getDayMeta(newId);
+      data.logs = importLogsFor(parsed.logs, entry.id, newId, meta.label).concat(data.logs);
+      addedGroups++;
+    });
+
+    // 2) Días propios ("Por días") — cada entrada de customDays trae su
+    // propia clave en templates.
+    (parsed.customDays || []).forEach(function(entry){
+      if(!parsed.templates || !parsed.templates[entry.id]) return;
+      handledKeys[entry.id] = true;
+      var newId = uid();
+      var label = uniqueCustomDayLabel(entry.label || "Día importado");
+      data.templates[newId] = cloneExercisesWithFreshIds(parsed.templates[entry.id]);
+      data.customDays.push({ id: newId, label: label });
+      data.logs = importLogsFor(parsed.logs, entry.id, newId, label).concat(data.logs);
+      addedDays++;
+    });
+
+    // 3) Compatibilidad con archivos sin groupVariants (backups de antes de
+    // esta versión, o de otra persona con una versión vieja de la app):
+    // cualquier clave de templates que sea uno de los 5 grupos fijos y no se
+    // haya procesado arriba se trata igual que una versión importada
+    // genérica de ese grupo, en vez de perderse.
+    DAYS.forEach(function(d){
+      if(handledKeys[d.id] || !parsed.templates || !parsed.templates[d.id]) return;
+      var newId = d.id + "_v_" + uid();
+      var label = uniqueVariantLabel(d.id, "Importado");
+      data.templates[newId] = cloneExercisesWithFreshIds(parsed.templates[d.id]);
+      data.groupVariants.push({ id: newId, groupId: d.id, label: label });
+      var meta = getDayMeta(newId);
+      data.logs = importLogsFor(parsed.logs, d.id, newId, meta.label).concat(data.logs);
+      addedGroups++;
+    });
+
+    return { groups: addedGroups, days: addedDays };
+  }
+
+  function importSummaryToast(result){
+    var parts = [];
+    if(result.groups) parts.push(result.groups + (result.groups === 1 ? " versión de grupo" : " versiones de grupo"));
+    if(result.days) parts.push(result.days + (result.days === 1 ? " día" : " días"));
+    if(!parts.length){ showToast("El archivo no tenía nada nuevo para agregar"); return; }
+    showToast("Importado: " + parts.join(" y ") + " ✓");
   }
 
   document.getElementById("importBtn").addEventListener("click", function(){
@@ -4031,13 +4303,13 @@ try{
         if(!parsed || typeof parsed !== "object" || !parsed.templates || !parsed.logs){
           throw new Error("formato inválido");
         }
-        showConfirm("Esto reemplaza todos tus datos actuales por los del archivo. ¿Continuar?", "Importar", function(){
-          data = parsed;
+        showConfirm("Esto agrega los grupos/días del archivo a tu rutina actual, sin borrar ni reemplazar nada de lo que ya tenés. ¿Continuar?", "Importar", function(){
+          var result = mergeImportedData(parsed);
           saveData();
-          activeExerciseId = null;
           renderExercises();
           renderHistory();
-          showToast("Datos importados ✓");
+          renderHomeMode();
+          importSummaryToast(result);
         });
       }catch(e){
         showToast("Archivo inválido");
@@ -4081,6 +4353,7 @@ try{
     applyingRemoteUpdate = true;
     data = payload;
     ensureCustomDays(data);
+    ensureGroupVariants(data);
     saveData();
     applyingRemoteUpdate = false;
     var exs = data.templates[currentDay] || [];
