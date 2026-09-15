@@ -265,6 +265,14 @@
     grid-template-columns:1fr 1fr;
     gap:10px;
   }
+  /* #groupCards/#customDayCards reciben un alto explícito en px por JS
+     (fitGroupsGrid(), medido contra el viewport real de cada dispositivo —
+     ver ese comentario para el porqué) y grid-auto-rows:1fr reparte ESE alto
+     entre las 3 filas por igual, en vez de una altura de ícono fija en px
+     calculada a ojo para un solo tamaño de pantalla. minmax(.., 1fr) deja un
+     piso de alto legible por si el espacio real disponible fuera menor a
+     eso (ahí sí entra scroll, en vez de aplastar las tarjetas de más). */
+  #groupCards{ grid-auto-rows:minmax(92px, 1fr); }
   .group-card{
     display:flex;
     flex-direction:column;
@@ -277,6 +285,7 @@
     text-align:center;
     font-family:inherit;
     cursor:pointer;
+    min-height:0;
   }
   .group-card:active{ opacity:.85; transform:scale(.98); }
   /* la 5ta tarjeta (impar) ocupa el ancho completo, layout horizontal para
@@ -285,20 +294,25 @@
     grid-column:1 / -1;
     flex-direction:row;
     justify-content:flex-start;
-    min-height:0;
     padding:10px 20px;
     text-align:left;
   }
   .group-card-icon{
     width:100%;
-    height:112px;
+    flex:1 1 auto;
+    min-height:0;
     display:flex;
     align-items:center;
     justify-content:center;
   }
+  /* la tarjeta "full" es fila (ícono a la izq, texto a la der.), así que su
+     ícono no llena ancho — sigue el ALTO disponible de la fila (dinámico,
+     igual que las demás) y calcula su propio ancho con aspect-ratio en vez
+     de un ancho fijo en px, para no distorsionarse en ninguna altura. */
   .group-card.full .group-card-icon{
-    width:62px;
-    height:92px;
+    width:auto;
+    height:100%;
+    aspect-ratio:31 / 46;
     flex:0 0 auto;
   }
   .group-icon-svg{ width:100%; height:100%; display:block; }
@@ -1378,7 +1392,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.12.1";
+  var APP_VERSION = "1.12.2";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1503,6 +1517,10 @@
     "1.12.1": [
       "Arreglamos que la barra del celular (hora, batería, etc.) se viera siempre clara al abrir la app, sin importar el tema: el color de acento nuevo (v1.12.0) se calculaba de una forma que el celular no entendía a la hora de pintar esa barra. Ahora sigue siempre el tema y el color de la app elegidos.",
       "Achicamos un poco los íconos y márgenes de las tarjetas de la pantalla principal para que \"Core y Cardio\" entre completo sin tener que scrollear."
+    ],
+    "1.12.2": [
+      "La app también tenía un color de fondo fijo (para cuando la agregás a la pantalla de inicio) que quedaba siempre claro sin importar el tema — puede haber sido la causa real de que la barra del celular se viera mal en modo oscuro. Si ya la tenés instalada como ícono y sigue viéndose mal, probá sacarla y volver a agregarla a la pantalla de inicio (ese color en particular se guarda al instalar, no se actualiza solo).",
+      "Las tarjetas de la pantalla principal ahora se adaptan de verdad al tamaño real de cada pantalla en vez de un tamaño fijo: en un celular con más espacio libre las tarjetas crecen para usarlo (nada de hueco vacío abajo), y en uno más chico se achican solo lo justo para que las 5 entren sin scroll."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2784,6 +2802,63 @@
     wrap.appendChild(addCard);
   }
 
+  // Alto de #groupCards/#customDayCards calculado contra el viewport REAL
+  // del dispositivo en ese momento (visualViewport cuando existe: sigue el
+  // alto realmente visible en mobile, a diferencia de innerHeight que en
+  // algunos navegadores incluye el área tapada por la barra de direcciones)
+  // menos todo lo que ya ocupan header + tabs + caption (si está visible) +
+  // el padding-bottom del body — así cada celular reparte exactamente el
+  // espacio que le sobra entre las 3 filas de tarjetas (grid-auto-rows:1fr
+  // en CSS hace el reparto en sí) sin scroll ni hueco vacío abajo, en vez de
+  // una altura de ícono fija en px elegida a ojo para un solo tamaño de
+  // pantalla. `minHeight` es un piso legible (mismos números que el
+  // minmax() del CSS) para no aplastar las tarjetas en un dispositivo
+  // realmente chico — ahí sí entra scroll en su lugar, a propósito.
+  function fitGroupsGrid(){
+    if(currentView !== "groups") return;
+    // Se mide getBoundingClientRect().top de la grilla activa en vez de ir
+    // sumando a mano el alto de header + tabs + caption: el .top ya refleja
+    // TODO lo que hay arriba (header con su padding de safe-area, padding
+    // del <main>, alto+márgenes de tabs/caption si está la de "por días")
+    // sin tener que enumerar cada fuente de espaciado — y sigue siendo
+    // correcto aunque el CSS de arriba cambie más adelante.
+    var activeGrid = document.getElementById(homeMode === "dias" ? "customDayCards" : "groupCards");
+    var viewportH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    var bottomPad = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    var top = activeGrid.getBoundingClientRect().top;
+    var minHeight = 92 * 3 + 10 * 2; // 3 filas al piso del minmax() + sus 2 gaps
+    var h = Math.max(viewportH - top - bottomPad, minHeight);
+    if(homeMode === "dias"){
+      // #customDayCards puede tener más días de los que entran en ese alto
+      // — no usa grid-auto-rows:1fr (sus filas quedan a su tamaño natural),
+      // así que acá min-height alcanza: solo agrega relleno abajo cuando
+      // hay pocos días, y con muchos simplemente crece y scrollea la
+      // página, sin recortar nada.
+      document.getElementById("customDayCards").style.minHeight = h + "px";
+    } else {
+      // #groupCards: height explícito (no min-height) — un track "1fr" de
+      // grid-auto-rows solo reparte espacio de verdad cuando el grid tiene
+      // un alto DEFINIDO en ese eje; con min-height (no definido) el
+      // navegador trata el 1fr como "auto" y las filas terminan del tamaño
+      // de su propio contenido en vez de repartirse el alto disponible. Es
+      // seguro usar height acá porque #groupCards siempre tiene exactamente
+      // 5 tarjetas (3 filas fijas), nunca contenido variable que desborde.
+      document.getElementById("groupCards").style.height = h + "px";
+    }
+  }
+
+  var fitGroupsGridRAF = null;
+  function scheduleFitGroupsGrid(){
+    if(fitGroupsGridRAF) return;
+    fitGroupsGridRAF = requestAnimationFrame(function(){
+      fitGroupsGridRAF = null;
+      fitGroupsGrid();
+    });
+  }
+  window.addEventListener("resize", scheduleFitGroupsGrid);
+  window.addEventListener("orientationchange", scheduleFitGroupsGrid);
+  if(window.visualViewport) window.visualViewport.addEventListener("resize", scheduleFitGroupsGrid);
+
   // Muestra la pestaña activa (tabs + caption + qué grid se ve) y renderiza
   // su contenido. Separado de showView() porque acá adentro no hay que tocar
   // nada de las otras pantallas (train/history/compare).
@@ -2794,6 +2869,7 @@
     document.getElementById("customDayCards").classList.toggle("hidden", homeMode !== "dias");
     document.getElementById("modeCaption").classList.toggle("hidden", homeMode !== "dias");
     if(homeMode === "dias") renderCustomDaysView(); else renderGroupsView();
+    fitGroupsGrid();
   }
 
   document.getElementById("homeModeTabs").addEventListener("click", function(ev){
