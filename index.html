@@ -137,7 +137,7 @@
     cursor:pointer;
   }
   .theme-toggle:active{ opacity:.8; }
-  main{ padding:16px; max-width:640px; margin:0 auto; }
+  main{ padding:12px 16px; max-width:640px; margin:0 auto; }
   .day-title{
     font-size:15px;
     color:var(--text-dim);
@@ -263,17 +263,17 @@
   .group-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:12px;
+    gap:10px;
   }
   .group-card{
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:6px;
+    gap:4px;
     background:var(--bg-elev);
     border:1px solid var(--border);
     border-radius:var(--radius);
-    padding:16px 10px 14px 10px;
+    padding:12px 10px 10px 10px;
     text-align:center;
     font-family:inherit;
     cursor:pointer;
@@ -286,19 +286,19 @@
     flex-direction:row;
     justify-content:flex-start;
     min-height:0;
-    padding:14px 20px;
+    padding:10px 20px;
     text-align:left;
   }
   .group-card-icon{
     width:100%;
-    height:140px;
+    height:112px;
     display:flex;
     align-items:center;
     justify-content:center;
   }
   .group-card.full .group-card-icon{
-    width:70px;
-    height:110px;
+    width:62px;
+    height:92px;
     flex:0 0 auto;
   }
   .group-icon-svg{ width:100%; height:100%; display:block; }
@@ -335,7 +335,7 @@
   .mode-tabs{
     display:flex;
     gap:6px;
-    margin-bottom:12px;
+    margin-bottom:10px;
   }
   .mode-tab{
     flex:1;
@@ -1378,7 +1378,7 @@
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.12.0";
+  var APP_VERSION = "1.12.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1499,6 +1499,10 @@
       "Nuevo botón de Ajustes (⚙️) junto al de Historial: ahí se mudaron el cambio de tema claro/oscuro y \"Cuenta y sincronización\", que antes eran íconos sueltos en el encabezado.",
       "Nuevo selector de color de la app en Ajustes: elegí entre violeta (el de siempre), azul, verde azulado, rojo o lavanda. Solo cambia botones y acentos generales — no toca el color propio de cada grupo muscular ni de los músculos resaltados en el cuerpo.",
       "\"Exportar\" ahora deja elegir qué copiar: todo como antes, o un solo grupo muscular / día propio (plantilla + su historial), útil para pasar o guardar aparte la rutina de un día en particular."
+    ],
+    "1.12.1": [
+      "Arreglamos que la barra del celular (hora, batería, etc.) se viera siempre clara al abrir la app, sin importar el tema: el color de acento nuevo (v1.12.0) se calculaba de una forma que el celular no entendía a la hora de pintar esa barra. Ahora sigue siempre el tema y el color de la app elegidos.",
+      "Achicamos un poco los íconos y márgenes de las tarjetas de la pantalla principal para que \"Core y Cardio\" entre completo sin tener que scrollear."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2291,10 +2295,37 @@
     return found || COLOR_SCHEMES[0];
   }
 
+  // --top-wash se calculaba en CSS con color-mix() a partir de --accent (ver
+  // :root), pero getComputedStyle() de una custom property NO evalúa
+  // color-mix() (solo sustituye var() anidados) — updateThemeUI() terminaba
+  // leyendo el string sin resolver ("color-mix(in srgb, #8839ef 9%, white)")
+  // y se lo pasaba tal cual a <meta name="theme-color">, que lo descarta por
+  // inválido y la barra de estado del sistema se quedaba pegada en el color
+  // claro inicial del <head>, sin importar el tema. Por eso acá se mezcla a
+  // mano en JS (mismo % que el color-mix de CSS) y se fija como valor ya
+  // resuelto, para que la lectura posterior en updateThemeUI() sea válida.
+  function hexToRgb(hex){
+    hex = hex.replace("#", "");
+    if(hex.length === 3) hex = hex.split("").map(function(c){ return c + c; }).join("");
+    var num = parseInt(hex, 16);
+    return { r:(num >> 16) & 255, g:(num >> 8) & 255, b:num & 255 };
+  }
+  function mixWithHex(hex, pct, target){
+    var c = hexToRgb(hex);
+    var r = Math.round(c.r * pct + target.r * (1 - pct));
+    var g = Math.round(c.g * pct + target.g * (1 - pct));
+    var b = Math.round(c.b * pct + target.b * (1 - pct));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
   function applyColorScheme(){
-    var vals = findScheme(colorScheme)[currentTheme()];
+    var dark = currentTheme() === "dark";
+    var vals = findScheme(colorScheme)[dark ? "dark" : "light"];
     document.documentElement.style.setProperty("--accent", vals.a);
     document.documentElement.style.setProperty("--accent-2", vals.a2);
+    var washPct = dark ? 0.17 : 0.09;
+    var washTarget = dark ? { r:0, g:0, b:0 } : { r:255, g:255, b:255 };
+    document.documentElement.style.setProperty("--top-wash", mixWithHex(vals.a, washPct, washTarget));
   }
 
   var ICON_CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
@@ -2316,6 +2347,7 @@
         colorScheme = s.id;
         try{ localStorage.setItem(COLOR_SCHEME_KEY, colorScheme); }catch(e){}
         applyColorScheme();
+        updateThemeUI();
         renderSchemeGrid();
       });
       wrap.appendChild(btn);
@@ -3902,8 +3934,8 @@
     var next = currentTheme() === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
-    updateThemeUI();
     applyColorScheme();
+    updateThemeUI();
   });
 
   function applyRemoteData(payload){
@@ -3941,8 +3973,8 @@
   }
 
   (function init(){
-    updateThemeUI();
     applyColorScheme();
+    updateThemeUI();
     renderMainBodies();
     buildEditorBodies();
     var exs = data.templates[currentDay] || [];
