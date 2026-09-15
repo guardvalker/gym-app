@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f5e9fa">
+<meta name="theme-color" content="#181825">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1084,17 +1084,6 @@
 // globales (sin envolver en su propio IIFE) para que el script principal
 // más abajo los reutilice tal cual, en vez de tener el mismo color de
 // acento calculado en dos lugares distintos.
-//
-// El motivo de por qué esto tiene que pasar tan temprano: en un Android
-// instalado como app (ícono en el escritorio, WebAPK), el color de la barra
-// de estado del sistema parece fijarse a partir de <meta name="theme-color">
-// solo en el momento de la navegación/carga de la página — cambiarlo por JS
-// después de que la página ya cargó (como hacía antes, recién en el init()
-// del script principal, casi al final del documento) no repinta la barra
-// hasta el próximo relanzamiento de la app. Calculando y fijando el color
-// correcto acá, en el primer script que corre, la barra ya arranca bien
-// desde el primer instante en vez de "corregirse" más tarde (cuando quizás
-// ya sea tarde para que el sistema operativo lo tome).
 try{
   var COLOR_SCHEME_KEY = "gymTrackerColorScheme_v1";
   var COLOR_SCHEMES = [
@@ -1112,12 +1101,6 @@ try{
     return found || COLOR_SCHEMES[0];
   };
 
-  // --top-wash se calculaba en CSS con color-mix() a partir de --accent (ver
-  // :root en <style>), pero getComputedStyle() de una custom property NO
-  // evalúa color-mix() (solo sustituye var() anidados): leer ese valor de
-  // vuelta por JS da el string sin resolver, y <meta name="theme-color"> lo
-  // descarta por inválido. Por eso acá se mezcla a mano en JS (mismo % que
-  // el color-mix de CSS) y se fija como valor ya resuelto.
   var hexToRgb = function(hex){
     hex = hex.replace("#", "");
     if(hex.length === 3) hex = hex.split("").map(function(c){ return c + c; }).join("");
@@ -1132,6 +1115,28 @@ try{
     return "rgb(" + r + "," + g + "," + b + ")";
   };
 
+  // Ya NO toca <meta name="theme-color"> — eso quedó fijo en el <head> y en
+  // manifest.json (mismo valor, #181825, ver ahí el porqué). Se probaron acá
+  // tres cosas distintas contra el color de la barra de estado en Android
+  // instalada como ícono (WebAPK) y ninguna cambió el resultado en modo
+  // claro: color-mix() sin resolver (v1.12.1), el theme_color estático del
+  // manifest (v1.12.2), y calcular/asignar el meta tag lo antes posible más
+  // sacarlo-y-reinsertarlo en vez de solo mutarlo (v1.12.3). El patrón que sí
+  // quedó claro probando las tres: en oscuro el fondo de la barra se ve bien
+  // (coincide con el manifest, que es oscuro) pero en claro el FONDO sigue
+  // oscuro — solo el color de las LETRAS pasa a negro — es decir, el relleno
+  // de la barra no sigue ni el tema ni ningún <meta> dinámico en este
+  // Android: se queda pegado al theme_color del manifest para siempre,
+  // mientras que el color de las letras se calcula aparte (aparentemente
+  // según el contenido real de la página, no según el meta). Con el
+  // relleno imposible de cambiar en runtime, la única combinación que
+  // garantiza legibilidad en los dos temas es dejar TODO (manifest + meta)
+  // permanentemente oscuro, para que las letras (que sí reaccionan al
+  // contenido/tema) siempre terminen siendo claras — nunca negro sobre
+  // negro. Por eso --accent/--accent-2/--top-wash acá abajo SÍ siguen
+  // cambiando con el tema y el esquema de color elegido (eso sí funciona,
+  // es la UI de la app en sí) — lo único que se resignó es que la barra de
+  // estado del sistema combine visualmente con el tema claro.
   var applyColorScheme = function(theme){
     var dark = theme === "dark";
     var vals = findScheme(colorScheme)[dark ? "dark" : "light"];
@@ -1141,21 +1146,6 @@ try{
     var washTarget = dark ? { r:0, g:0, b:0 } : { r:255, g:255, b:255 };
     var wash = mixWithHex(vals.a, washPct, washTarget);
     document.documentElement.style.setProperty("--top-wash", wash);
-    // Se saca y se vuelve a insertar el <meta>, en vez de solo mutar
-    // .content: en un cambio de tema EN VIVO (sin recargar la página), esa
-    // mutación sola no siempre alcanza para que Android repinte la barra de
-    // estado de una PWA instalada — algunas versiones solo la actualizan al
-    // detectar el elemento insertado de nuevo, no un cambio de atributo.
-    // Barato de hacer y no rompe nada si no hace falta (mismo resultado que
-    // antes en cualquier navegador donde la mutación simple ya funcionaba).
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if(meta){
-      meta.remove();
-      meta = document.createElement("meta");
-      meta.name = "theme-color";
-      meta.content = wash;
-      document.head.appendChild(meta);
-    }
   };
 
   var t = localStorage.getItem("gymTrackerTheme_v1");
@@ -1473,7 +1463,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.12.3";
+  var APP_VERSION = "1.12.4";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1606,6 +1596,9 @@ try{
     "1.12.3": [
       "El color de la app y de la barra de estado ahora se calculan al principio de todo, antes de que se dibuje nada, en vez de un momento más tarde — en Android instalada como ícono, la barra de estado parece pintarse solo en ese primer instante, así que corregirla después (como hacíamos) no siempre se veía reflejado.",
       "El diagrama del cuerpo en la pantalla de un ejercicio ahora también se achica un poco si hace falta, para que \"Guardar día\" entre siempre sin tener que scrollear, sea cual sea el tamaño de la pantalla."
+    ],
+    "1.12.4": [
+      "La barra de estado del celular (hora, batería) queda fija en oscuro sin importar el tema de la app: probamos varias formas de que siguiera al modo claro/oscuro, pero en Android instalado como ícono el fondo de esa barra no responde a nada de lo que la app puede controlar — se queda con el color de instalación para siempre. Dejarla siempre oscura es lo único que garantiza que las letras (esas sí cambian) nunca queden negro sobre negro."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
