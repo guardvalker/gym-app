@@ -713,6 +713,112 @@
     border-color:var(--current-group-color);
     color:var(--on-group-color);
   }
+  .ex-pager-btn.done{
+    background:color-mix(in srgb, var(--current-group-color) 28%, var(--bg-elev-2));
+    border-color:var(--current-group-color);
+    color:var(--text);
+  }
+  .ex-pager-btn.done.active{
+    background:var(--current-group-color);
+    color:var(--on-group-color);
+  }
+  /* ---- Dropdown de ejercicios hechos ---- */
+  #trainView .body-card{ position:relative; }
+  .done-dd{ margin-top:8px; }
+  .done-dd.hidden{ display:none; }
+  .done-dd-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:inherit;
+    font-size:12px;
+    font-weight:700;
+    color:var(--text);
+    background:var(--bg-elev-2);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:5px 10px;
+    cursor:pointer;
+  }
+  .done-dd-btn.all{ border-color:var(--current-group-color); color:var(--current-group-color); }
+  .done-dd-btn[aria-expanded="true"] svg{ transform:rotate(180deg); }
+  .done-dd-panel{
+    position:absolute;
+    left:9px;
+    right:9px;
+    top:calc(100% - 6px);
+    z-index:20;
+    background:var(--bg-elev);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 10px 28px rgba(0,0,0,.35);
+    padding:6px;
+  }
+  .done-dd-panel.hidden{ display:none; }
+  .done-dd-list{ max-height:min(46vh, 320px); overflow-y:auto; }
+  .done-dd-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    text-align:left;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--text);
+    background:none;
+    border:none;
+    border-radius:8px;
+    padding:9px 8px;
+    cursor:pointer;
+  }
+  .done-dd-item:active{ background:var(--bg-elev-2); }
+  .done-dd-num{ flex:0 0 auto; width:20px; font-size:12px; font-weight:700; color:var(--text-dim); }
+  .done-dd-name{ flex:1; min-width:0; }
+  .done-dd-item.done .done-dd-name{ color:var(--text-dim); text-decoration:line-through; }
+  .done-dd-box{
+    flex:0 0 auto;
+    width:20px;
+    height:20px;
+    border-radius:6px;
+    border:2px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:transparent;
+  }
+  .done-dd-item.done .done-dd-box{
+    background:var(--current-group-color);
+    border-color:var(--current-group-color);
+    color:var(--on-group-color);
+  }
+  .done-dd-reset{
+    width:100%;
+    margin-top:4px;
+    padding:9px;
+    font-family:inherit;
+    font-size:13px;
+    font-weight:700;
+    color:var(--text-dim);
+    background:var(--bg-elev-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .done-dd-reset:disabled{ opacity:.45; cursor:default; }
+  /* ---- Ajustes: orden de campos ---- */
+  .field-order{ display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+  .field-order-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--bg-elev-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:6px 6px 6px 12px;
+  }
+  .field-order-pos{ font-size:12px; font-weight:700; color:var(--text-dim); width:14px; }
+  .field-order-name{ flex:1; font-size:14px; font-weight:600; }
+  .field-order-row .icon-btn:disabled{ opacity:.3; }
   .save-bar-card{ padding:10px 11px; margin-bottom:0; }
   .save-bar{
     display:flex;
@@ -1222,6 +1328,16 @@ try{
     <div class="body-caption">
       <div class="body-ex-name" id="bodyExName">Tocá un ejercicio</div>
       <div class="body-muscles" id="bodyMuscles">para ver qué músculos trabaja</div>
+      <div class="done-dd hidden" id="doneDd">
+        <button type="button" class="done-dd-btn" id="doneDdBtn" aria-haspopup="true" aria-expanded="false">
+          <span id="doneDdLabel">Hechos 0/0</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="done-dd-panel hidden" id="doneDdPanel">
+          <div class="done-dd-list" id="doneDdList"></div>
+          <button type="button" class="done-dd-reset" id="doneDdReset">Reiniciar</button>
+        </div>
+      </div>
     </div>
 
     <div class="bodies" id="mainBodies">
@@ -1331,6 +1447,12 @@ try{
       <div class="settings-row-label">Color de la app</div>
       <div class="settings-row-hint">No afecta los colores fijos de cada grupo muscular ni de los músculos resaltados.</div>
       <div class="scheme-grid" id="schemeGrid"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-row-label">Orden de los campos</div>
+      <div class="settings-row-hint">Cómo se ordenan series, peso y repeticiones en cada ejercicio. Usá las flechas para ponerlos en el orden que quieras.</div>
+      <div class="field-order" id="fieldOrderList"></div>
     </div>
 
     <div class="settings-section">
@@ -1485,7 +1607,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.13.0";
+  var APP_VERSION = "1.14.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1624,6 +1746,10 @@ try{
     ],
     "1.13.0": [
       "Importar ya no reemplaza tu rutina: ahora agrega lo del archivo a lo que ya tenías. Un grupo muscular fijo (ej. \"Piernas\") importado se suma como una versión nueva de ese grupo, elegible desde un selector \"Original\"/\"Importado\" arriba a la derecha en la pantalla de ese grupo (con un botón para borrar esa versión si ya no la querés). Un día propio (\"Por días\") importado se agrega como un día nuevo, con \"(importado)\" sumado al nombre si ya tenías uno igual."
+    ],
+    "1.14.0": [
+      "Ahora podés marcar qué ejercicios del día ya hiciste: en la pantalla de cada día, debajo del nombre del ejercicio, hay un desplegable \"Hechos 0/5\" con la lista de ejercicios para tildar. Los números de la guía de abajo se pintan cuando el ejercicio está hecho, y el desplegable tiene un botón \"Reiniciar\" para destildar todos.",
+      "En Ajustes hay un nuevo selector \"Orden de los campos\": con las flechas ponés series, peso y repeticiones en el orden que quieras (por ejemplo series / repeticiones / peso) y se aplica a todos los ejercicios."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -1974,6 +2100,35 @@ try{
     var savedMode = localStorage.getItem(HOME_MODE_KEY);
     if(savedMode === "dias") homeMode = "dias";
   }catch(e){}
+
+  // Orden en que se muestran series/peso/repeticiones en cada ejercicio.
+  // Preferencia de este dispositivo (como el tema), no viaja por Supabase.
+  var FIELD_ORDER_KEY = "gymTrackerFieldOrder_v1";
+  var FIELD_LABELS = { series:"Series", peso:"Peso (kg)", reps:"Repeticiones" };
+  var FIELD_DEFAULT_ORDER = ["series", "peso", "reps"];
+  var fieldOrder = FIELD_DEFAULT_ORDER.slice();
+  try{
+    var savedOrder = JSON.parse(localStorage.getItem(FIELD_ORDER_KEY));
+    // solo se acepta una permutación válida de las 3 claves; cualquier otra
+    // cosa (dato viejo, corrupto, a medio escribir) vuelve al orden de siempre
+    if(Array.isArray(savedOrder) && savedOrder.length === 3 &&
+       FIELD_DEFAULT_ORDER.every(function(k){ return savedOrder.indexOf(k) !== -1; })){
+      fieldOrder = savedOrder;
+    }
+  }catch(e){}
+
+  // Ejercicios marcados como hechos, por día: { dayId: [exId, ...] }.
+  // También es local a este dispositivo: es el "voy por acá" del
+  // entrenamiento en curso, no un dato de la rutina.
+  var DONE_KEY = "gymTrackerDone_v1";
+  var doneMap = {};
+  try{
+    var savedDone = JSON.parse(localStorage.getItem(DONE_KEY));
+    if(savedDone && typeof savedDone === "object" && !Array.isArray(savedDone)) doneMap = savedDone;
+  }catch(e){}
+  function saveDone(){
+    try{ localStorage.setItem(DONE_KEY, JSON.stringify(doneMap)); }catch(e){}
+  }
 
   // ---------- Comparativa de registros ----------
   var compareMode = false;
@@ -2465,6 +2620,43 @@ try{
     });
   }
   renderSchemeGrid();
+
+  var ICON_UP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>';
+  var ICON_DOWN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+
+  function moveField(idx, delta){
+    var to = idx + delta;
+    if(to < 0 || to >= fieldOrder.length) return;
+    var moved = fieldOrder.splice(idx, 1)[0];
+    fieldOrder.splice(to, 0, moved);
+    try{ localStorage.setItem(FIELD_ORDER_KEY, JSON.stringify(fieldOrder)); }catch(e){}
+    renderFieldOrder();
+    renderExercises();
+  }
+
+  function renderFieldOrder(){
+    var wrap = document.getElementById("fieldOrderList");
+    wrap.innerHTML = "";
+    fieldOrder.forEach(function(key, idx){
+      var row = document.createElement("div");
+      row.className = "field-order-row";
+      row.innerHTML = '<span class="field-order-pos">' + (idx + 1) + '</span><span class="field-order-name"></span>';
+      row.querySelector(".field-order-name").textContent = FIELD_LABELS[key];
+      [[-1, ICON_UP, "Subir"], [1, ICON_DOWN, "Bajar"]].forEach(function(d){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "icon-btn";
+        b.innerHTML = d[1];
+        b.title = d[2] + " " + FIELD_LABELS[key];
+        b.setAttribute("aria-label", b.title);
+        b.disabled = (idx + d[0] < 0 || idx + d[0] >= fieldOrder.length);
+        b.addEventListener("click", function(){ moveField(idx, d[0]); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+    });
+  }
+  renderFieldOrder();
 
   document.getElementById("accountSendOtpBtn").addEventListener("click", function(){
     var email = document.getElementById("accountEmailInput").value.trim();
@@ -3273,9 +3465,8 @@ try{
       onChange: function(v){ ex.reps = v; saveData(); }
     }));
 
-    row.appendChild(fSeries);
-    row.appendChild(fPeso);
-    row.appendChild(fReps);
+    var fieldEls = { series: fSeries, peso: fPeso, reps: fReps };
+    fieldOrder.forEach(function(key){ row.appendChild(fieldEls[key]); });
     page.appendChild(row);
 
     return page;
@@ -3362,7 +3553,7 @@ try{
     exs.forEach(function(e, idx){
       var pbtn = document.createElement("button");
       pbtn.type = "button";
-      pbtn.className = "ex-pager-btn" + (e.id === activeExerciseId ? " active" : "");
+      pbtn.className = "ex-pager-btn" + (e.id === activeExerciseId ? " active" : "") + (isDone(e.id) ? " done" : "");
       pbtn.textContent = String(idx + 1);
       pbtn.title = e.name;
       pbtn.dataset.exId = e.id;
@@ -3378,8 +3569,98 @@ try{
 
     renderDiagram();
     goToExercisePage(activeExerciseId);
+    renderDoneDropdown();
     fitTrainView();
   }
+
+  // ---------- Ejercicios hechos del día ----------
+
+  function isDone(exId){
+    return (doneMap[currentDay] || []).indexOf(exId) !== -1;
+  }
+
+  function setDone(exId, done){
+    var list = doneMap[currentDay] || [];
+    var has = list.indexOf(exId) !== -1;
+    if(done && !has) list.push(exId);
+    if(!done && has) list = list.filter(function(id){ return id !== exId; });
+    doneMap[currentDay] = list;
+    saveDone();
+  }
+
+  function closeDoneDropdown(){
+    document.getElementById("doneDdPanel").classList.add("hidden");
+    document.getElementById("doneDdBtn").setAttribute("aria-expanded", "false");
+  }
+
+  // Redibuja el dropdown y el estado "hecho" de los números de la guía.
+  // También limpia ids de ejercicios que ya no existen en el día (borrados),
+  // para que el contador nunca cuente algo que no está.
+  function renderDoneDropdown(){
+    var exs = data.templates[currentDay] || [];
+    var dd = document.getElementById("doneDd");
+    if(!exs.length){
+      dd.classList.add("hidden");
+      closeDoneDropdown();
+      return;
+    }
+    dd.classList.remove("hidden");
+
+    var validIds = exs.map(function(e){ return e.id; });
+    var kept = (doneMap[currentDay] || []).filter(function(id){ return validIds.indexOf(id) !== -1; });
+    if(kept.length !== (doneMap[currentDay] || []).length){
+      doneMap[currentDay] = kept;
+      saveDone();
+    }
+
+    var btn = document.getElementById("doneDdBtn");
+    document.getElementById("doneDdLabel").textContent = "Hechos " + kept.length + "/" + exs.length;
+    btn.classList.toggle("all", kept.length === exs.length);
+    document.getElementById("doneDdReset").disabled = kept.length === 0;
+
+    var list = document.getElementById("doneDdList");
+    list.innerHTML = "";
+    exs.forEach(function(e, idx){
+      var done = kept.indexOf(e.id) !== -1;
+      var item = document.createElement("button");
+      item.type = "button";
+      item.className = "done-dd-item" + (done ? " done" : "");
+      item.setAttribute("role", "checkbox");
+      item.setAttribute("aria-checked", done ? "true" : "false");
+      item.innerHTML =
+        '<span class="done-dd-num">' + (idx + 1) + '</span>' +
+        '<span class="done-dd-name"></span>' +
+        '<span class="done-dd-box">' + ICON_CHECK + '</span>';
+      item.querySelector(".done-dd-name").textContent = e.name;
+      item.addEventListener("click", function(){
+        setDone(e.id, !isDone(e.id));
+        renderDoneDropdown();
+      });
+      list.appendChild(item);
+    });
+
+    document.querySelectorAll(".ex-pager-btn").forEach(function(b){
+      b.classList.toggle("done", kept.indexOf(b.dataset.exId) !== -1);
+    });
+  }
+
+  document.getElementById("doneDdBtn").addEventListener("click", function(ev){
+    ev.stopPropagation();
+    var panel = document.getElementById("doneDdPanel");
+    var open = panel.classList.contains("hidden");
+    panel.classList.toggle("hidden", !open);
+    this.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  document.getElementById("doneDdReset").addEventListener("click", function(){
+    doneMap[currentDay] = [];
+    saveDone();
+    renderDoneDropdown();
+  });
+  // Los clics adentro del dropdown no llegan al document: al tildar, la
+  // lista se reconstruye y el botón tocado ya no está en el DOM cuando el
+  // evento sube, así que un closest("#doneDd") daría falso y lo cerraría.
+  document.getElementById("doneDd").addEventListener("click", function(ev){ ev.stopPropagation(); });
+  document.addEventListener("click", closeDoneDropdown);
 
   // Carrusel manejado a mano en vez de scroll-snap nativo: en Android el
   // "asentado" del snap trae su propia animación de duración fija que no
