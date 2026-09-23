@@ -111,7 +111,6 @@
     display:flex;
     align-items:center;
     gap:8px;
-    cursor:pointer;
   }
   .header-top{
     display:flex;
@@ -183,7 +182,7 @@
     gap:6px;
   }
   .body-label{
-    font-size:10.5px;
+    font-size:11.5px;
     color:var(--text-dim);
     text-transform:uppercase;
     letter-spacing:.06em;
@@ -231,17 +230,50 @@
     min-height:44px;
   }
   /* ancho fijo: el texto nunca empuja ni achica el diagrama de al lado */
+  /* La columna de texto ocupa lo que sobra al lado del diagrama (no un
+     ancho fijo en px: con el diagrama a 80px + 14px de separación, 116px ya
+     no entraba en pantallas de 360px) y se estira al alto de la tarjeta.
+     Adentro, cada bloque tiene alto propio: el nombre (2 líneas), cada fila
+     de nivel (2 líneas) y el desplegable "Hechos" pegado abajo — nada se
+     corre según cuánto texto tenga el ejercicio, lo que sobra se corta con
+     "…" (el nombre completo queda en el title). */
   #trainView .body-caption{
     min-height:0;
     text-align:left;
-    flex:0 0 116px;
-    width:116px;
+    flex:1 1 0;
+    min-width:0;
+    align-self:stretch;
+    display:flex;
+    flex-direction:column;
   }
   .body-ex-name{
     font-size:14.5px;
     font-weight:700;
   }
-  #trainView .body-ex-name{ font-size:13px; line-height:1.25; }
+  #trainView .body-ex-name{
+    font-size:15px;
+    line-height:1.25;
+    height:2.5em;
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    flex:0 0 auto;
+  }
+  /* alto mínimo = las 3 filas de nivel completas (3 × 2.6em de 12.5px + 2
+     separaciones de 3px): así el bloque mide lo mismo tenga el ejercicio 1,
+     2 o 3 niveles, y el desplegable de abajo no cambia de lugar. */
+  #trainView .body-muscles{ margin-top:6px; min-height:calc(3 * 2.6 * 12.5px + 2 * 3px); }
+  #trainView .tier-row.primary,
+  #trainView .tier-row.secondary,
+  #trainView .tier-row.tertiary{
+    font-size:12.5px;
+    height:2.6em;
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+  }
   .body-muscles{
     font-size:12px;
     color:var(--text-dim);
@@ -486,8 +518,13 @@
     margin-bottom:8px;
   }
   .ex-name{
-    font-size:15.5px;
+    font-size:17px;
     font-weight:600;
+    flex:1;
+    min-width:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .ex-actions{
     display:flex;
@@ -518,7 +555,7 @@
     gap:4px;
   }
   .field label{
-    font-size:11.5px;
+    font-size:12.5px;
     color:var(--text-dim);
     text-transform:uppercase;
     letter-spacing:.03em;
@@ -571,9 +608,14 @@
      centrado (dentro de la franja resaltada) es el elegido. La lista tiene
      un padding arriba/abajo de un ítem para que el primer y el último
      valor también puedan llegar al centro. */
+  /* --wheel-item-h la fija fitTrainView() en JS según el espacio libre
+     real de cada pantalla (ver ese comentario): las ruedas crecen solas
+     cuando sobra lugar abajo. Los tamaños de fuente cuelgan de ese mismo
+     valor para que número y franja crezcan juntos. */
+  :root{ --wheel-item-h:34px; }
   .wheel{
     position:relative;
-    height:96px;
+    height:calc(var(--wheel-item-h) * 3);
   }
   .wheel-viewport{
     height:100%;
@@ -583,26 +625,26 @@
     scrollbar-width:none;
   }
   .wheel-viewport::-webkit-scrollbar{ display:none; }
-  .wheel-list{ padding:32px 0; }
+  .wheel-list{ padding:var(--wheel-item-h) 0; }
   .wheel-item{
-    height:32px;
+    height:var(--wheel-item-h);
     display:flex;
     align-items:center;
     justify-content:center;
     scroll-snap-align:center;
-    font-size:14px;
+    font-size:calc(var(--wheel-item-h) * .46);
     color:var(--text-dim);
     font-variant-numeric:tabular-nums;
   }
   .wheel-item.active{
     color:var(--current-group-color);
     font-weight:800;
-    font-size:17px;
+    font-size:calc(var(--wheel-item-h) * .68);
   }
   .wheel-band{
     position:absolute;
-    left:0; right:0; top:32px;
-    height:32px;
+    left:0; right:0; top:var(--wheel-item-h);
+    height:var(--wheel-item-h);
     border-top:1px solid var(--border);
     border-bottom:1px solid var(--border);
     pointer-events:none;
@@ -679,13 +721,13 @@
   .ex-pager.hidden{ display:none; }
   .add-ex-icon{
     flex:0 0 auto;
-    width:25px;
-    height:25px;
+    width:28px;
+    height:28px;
     border-radius:50%;
     border:1px dashed var(--border);
     background:transparent;
     color:var(--text-dim);
-    font-size:16px;
+    font-size:18px;
     font-weight:700;
     line-height:1;
     cursor:pointer;
@@ -696,14 +738,14 @@
   }
   .ex-pager-btn{
     flex:0 0 auto;
-    width:25px;
-    height:25px;
+    width:28px;
+    height:28px;
     border-radius:50%;
     border:1px solid var(--border);
     background:var(--bg-elev-2);
     color:var(--text-dim);
     font-family:inherit;
-    font-size:11.5px;
+    font-size:13px;
     font-weight:700;
     cursor:pointer;
     padding:0;
@@ -724,20 +766,20 @@
   }
   /* ---- Dropdown de ejercicios hechos ---- */
   #trainView .body-card{ position:relative; }
-  .done-dd{ margin-top:8px; }
+  .done-dd{ margin-top:auto; padding-top:8px; }
   .done-dd.hidden{ display:none; }
   .done-dd-btn{
     display:inline-flex;
     align-items:center;
     gap:6px;
     font-family:inherit;
-    font-size:12px;
+    font-size:13px;
     font-weight:700;
     color:var(--text);
     background:var(--bg-elev-2);
     border:1px solid var(--border);
     border-radius:999px;
-    padding:5px 10px;
+    padding:6px 12px;
     cursor:pointer;
   }
   .done-dd-btn.all{ border-color:var(--current-group-color); color:var(--current-group-color); }
@@ -1294,7 +1336,7 @@ try{
 
 <header>
   <div class="header-top">
-    <h1 id="titleBtn" role="button" tabindex="0" aria-label="Ver versión y buscar actualización"><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> Mi Rutina</h1>
+    <h1><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> Mi Rutina</h1>
     <div class="header-actions">
       <button class="theme-toggle" id="historyBtn" title="Historial" aria-label="Ver historial de entrenamientos guardados"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>
       <button class="theme-toggle" id="settingsBtn" title="Ajustes" aria-label="Ajustes"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
@@ -1414,21 +1456,6 @@ try{
   </div>
 </div>
 
-<div class="modal-overlay hidden" id="versionOverlay">
-  <div class="modal-sheet version-sheet" style="max-width:420px;">
-    <div class="modal-head">
-      <div class="modal-title">Versión instalada</div>
-      <button class="icon-btn" id="versionClose">✕</button>
-    </div>
-    <div class="whatsnew-version">versión <span id="versionNumCurrent"></span></div>
-    <button class="btn-primary" id="versionRefreshBtn" type="button">Buscar actualización</button>
-    <div class="version-history-scroll">
-      <div class="version-history-subtitle">Historial de versiones</div>
-      <div id="versionHistory"></div>
-    </div>
-  </div>
-</div>
-
 <div class="modal-overlay hidden" id="settingsOverlay">
   <div class="modal-sheet" style="max-width:420px;">
     <div class="modal-head">
@@ -1457,6 +1484,33 @@ try{
 
     <div class="settings-section">
       <button class="theme-toggle hidden settings-account-btn" id="accountBtn" title="Cuenta y sincronización" aria-label="Cuenta y sincronización"></button>
+    </div>
+
+    <div class="settings-section">
+      <button class="theme-toggle settings-account-btn" id="versionBtn" title="Versión y actualizaciones" aria-label="Versión, buscar actualización e historial de cambios">
+        <span class="settings-account-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span>
+        <span class="settings-account-body">
+          <span class="settings-account-title">Versión y actualizaciones</span>
+          <span class="settings-account-sub" id="versionBtnSub"></span>
+        </span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Va después de settingsOverlay a propósito: se abre desde Ajustes, y
+     closeTopModal() cierra el último overlay visible en orden de documento. -->
+<div class="modal-overlay hidden" id="versionOverlay">
+  <div class="modal-sheet version-sheet" style="max-width:420px;">
+    <div class="modal-head">
+      <div class="modal-title">Versión instalada</div>
+      <button class="icon-btn" id="versionClose">✕</button>
+    </div>
+    <div class="whatsnew-version">versión <span id="versionNumCurrent"></span></div>
+    <button class="btn-primary" id="versionRefreshBtn" type="button">Buscar actualización</button>
+    <div class="version-history-scroll">
+      <div class="version-history-subtitle">Historial de versiones</div>
+      <div id="versionHistory"></div>
     </div>
   </div>
 </div>
@@ -1607,7 +1661,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.14.0";
+  var APP_VERSION = "1.15.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1750,6 +1804,11 @@ try{
     "1.14.0": [
       "Ahora podés marcar qué ejercicios del día ya hiciste: en la pantalla de cada día, debajo del nombre del ejercicio, hay un desplegable \"Hechos 0/5\" con la lista de ejercicios para tildar. Los números de la guía de abajo se pintan cuando el ejercicio está hecho, y el desplegable tiene un botón \"Reiniciar\" para destildar todos.",
       "En Ajustes hay un nuevo selector \"Orden de los campos\": con las flechas ponés series, peso y repeticiones en el orden que quieras (por ejemplo series / repeticiones / peso) y se aplica a todos los ejercicios."
+    ],
+    "1.15.0": [
+      "En la pantalla de cada día, el texto al lado del cuerpo ahora tiene lugares fijos: el nombre del ejercicio, Principal/Secundario/Terciario y el desplegable \"Hechos\" ya no se corren cuando cambiás de ejercicio o el nombre es largo (si algo no entra se corta con \"…\").",
+      "Textos más grandes en esa pantalla (nombre, músculos, títulos de series/peso/repeticiones y guía numerada), y las ruedas de series/peso/repeticiones crecen solas para aprovechar el espacio libre de abajo, con números bastante más grandes.",
+      "La versión instalada, el botón de buscar actualización y el historial de versiones se movieron al final de Ajustes (antes se abrían tocando \"Mi Rutina\" arriba)."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2293,6 +2352,7 @@ try{
     }
 
     document.getElementById("bodyExName").textContent = ex.name;
+    document.getElementById("bodyExName").title = ex.name;
     applyMuscles(ex.muscles || {}, "mainBodyFrontMount");
     applyMuscles(ex.muscles || {}, "mainBodyBackMount");
     document.getElementById("bodyMuscles").innerHTML = musclesCaptionHTML(ex.muscles, "Sin músculos asignados. Editá el ejercicio para marcarlos.");
@@ -2510,13 +2570,8 @@ try{
     history.back();
   }
 
-  document.getElementById("titleBtn").addEventListener("click", openVersionModal);
-  document.getElementById("titleBtn").addEventListener("keydown", function(ev){
-    if(ev.key === "Enter" || ev.key === " "){
-      ev.preventDefault();
-      openVersionModal();
-    }
-  });
+  document.getElementById("versionBtn").addEventListener("click", openVersionModal);
+  document.getElementById("versionBtnSub").textContent = "Versión " + APP_VERSION + " · historial de cambios";
   document.getElementById("versionClose").addEventListener("click", closeVersionModal);
   document.getElementById("versionOverlay").addEventListener("click", function(ev){
     if(ev.target === this) closeVersionModal();
@@ -3323,8 +3378,12 @@ try{
   // centrado en la franja resaltada. Arranca centrado en `value` (no
   // siempre en el mínimo) para que ajustar un valor ya cargado no
   // requiera scrollear desde cero cada vez.
+  // Alto de cada ítem de las ruedas (px). Lo cambia setWheelItemH() desde
+  // fitTrainView(); las ruedas lo leen en vivo, no lo copian al crearse.
+  var WHEEL_H_MIN = 26, WHEEL_H_BASE = 34, WHEEL_H_MAX = 54;
+  var wheelItemH = WHEEL_H_BASE;
+
   function buildWheel(opts){
-    var ITEM_H = 32;
     var values = [];
     for(var v = opts.min; v <= opts.max; v += opts.step){
       values.push(Math.round(v * 100) / 100);
@@ -3352,9 +3411,11 @@ try{
     wrap.appendChild(band);
 
     function setActive(idx){
+      activeIdx = idx;
       items.forEach(function(it, i){ it.classList.toggle("active", i === idx); });
     }
 
+    var activeIdx = 0;
     var initialIdx = 0, best = Infinity;
     values.forEach(function(v, i){
       var d = Math.abs(v - opts.value);
@@ -3366,17 +3427,19 @@ try{
     // scrollTop ahora no tiene efecto — no hay layout todavía. Se difiere
     // a un frame más tarde, para cuando ya esté en el DOM real.
     requestAnimationFrame(function(){
-      viewport.scrollTop = initialIdx * ITEM_H;
+      viewport.scrollTop = initialIdx * wheelItemH;
     });
+    // cuando cambia el alto de los ítems, reposiciona en el mismo valor
+    wrap._relayout = function(){ viewport.scrollTop = activeIdx * wheelItemH; };
 
     var scrollTimer = null;
     viewport.addEventListener("scroll", function(){
       if(scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(function(){
-        var idx = Math.round(viewport.scrollTop / ITEM_H);
+        var idx = Math.round(viewport.scrollTop / wheelItemH);
         idx = Math.max(0, Math.min(idx, values.length - 1));
-        if(viewport.scrollTop !== idx * ITEM_H){
-          viewport.scrollTo({ top: idx * ITEM_H, behavior:"auto" });
+        if(viewport.scrollTop !== idx * wheelItemH){
+          viewport.scrollTo({ top: idx * wheelItemH, behavior:"auto" });
         }
         setActive(idx);
         opts.onChange(values[idx]);
@@ -3505,20 +3568,47 @@ try{
   // dice cuánto hay que reducir el ancho para cerrar exactamente ese
   // desborde. minWidth es un piso legible — pasado ese punto se prefiere un
   // scroll mínimo antes que un diagrama ilegible.
+  function setWheelItemH(h){
+    if(h === wheelItemH) return;
+    wheelItemH = h;
+    document.documentElement.style.setProperty("--wheel-item-h", h + "px");
+    document.querySelectorAll(".wheel").forEach(function(w){ if(w._relayout) w._relayout(); });
+  }
+
+  // Además de achicar el cuerpo cuando falta lugar, reparte el lugar que
+  // SOBRA: si debajo de "Guardar día" queda espacio libre, las ruedas de
+  // series/peso/repeticiones crecen (ítems más altos y números más grandes,
+  // hasta WHEEL_H_MAX) en vez de dejar ese vacío. Son 3 ítems visibles por
+  // rueda, así que cada px extra de alto de ítem suma 3px a la pantalla.
   function fitTrainView(){
     if(currentView !== "day") return;
     var svg = document.querySelector("#mainBodies .body-svg");
     if(!svg) return;
-    document.documentElement.style.removeProperty("--main-body-width");
+    var root = document.documentElement;
+    root.style.removeProperty("--main-body-width");
+    setWheelItemH(WHEEL_H_BASE);
     var viewportH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-    var overflow = document.documentElement.scrollHeight - viewportH;
-    if(overflow <= 0) return;
-    var rect = svg.getBoundingClientRect();
-    if(!rect.width || !rect.height) return;
-    var ratio = rect.height / rect.width;
-    var minWidth = 56;
-    var newWidth = Math.max(rect.width - (overflow / ratio) - 4, minWidth);
-    document.documentElement.style.setProperty("--main-body-width", newWidth + "px");
+    var saveCard = document.querySelector("#trainView .save-bar-card");
+    var padBottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    var contentBottom = saveCard
+      ? saveCard.getBoundingClientRect().bottom + window.scrollY + padBottom
+      : root.scrollHeight;
+    var overflow = contentBottom - viewportH;
+    if(overflow > 0){
+      var rect = svg.getBoundingClientRect();
+      if(!rect.width || !rect.height) return;
+      var ratio = rect.height / rect.width;
+      var minWidth = 56;
+      var newWidth = Math.max(rect.width - (overflow / ratio) - 4, minWidth);
+      root.style.setProperty("--main-body-width", newWidth + "px");
+      // el cuerpo ya no puede achicarse más (piso legible) y aún sobra
+      // contenido: se le pide lo que falta a las ruedas, hasta un mínimo
+      var left = saveCard.getBoundingClientRect().bottom + window.scrollY + padBottom - viewportH;
+      if(left > 0) setWheelItemH(Math.max(WHEEL_H_MIN, WHEEL_H_BASE - Math.ceil(left / 3)));
+      return;
+    }
+    var extra = Math.floor((-overflow - 8) / 3);
+    if(extra > 0) setWheelItemH(Math.min(WHEEL_H_MAX, WHEEL_H_BASE + extra));
   }
 
   function renderExercises(){
