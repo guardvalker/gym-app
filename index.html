@@ -182,7 +182,7 @@
     gap:6px;
   }
   .body-label{
-    font-size:11.5px;
+    font-size:calc(11.5px * var(--ui-scale));
     color:var(--text-dim);
     text-transform:uppercase;
     letter-spacing:.06em;
@@ -250,8 +250,11 @@
     font-size:14.5px;
     font-weight:700;
   }
+  /* --ui-scale (Ajustes > Tamaño en la pantalla de ejercicios, 0.8–1.2)
+     multiplica los tamaños de esta pantalla; 1 = los valores base. */
+  :root{ --ui-scale:1; }
   #trainView .body-ex-name{
-    font-size:15px;
+    font-size:calc(15px * var(--ui-scale));
     line-height:1.25;
     height:2.5em;
     overflow:hidden;
@@ -263,11 +266,11 @@
   /* alto mínimo = las 3 filas de nivel completas (3 × 2.6em de 12.5px + 2
      separaciones de 3px): así el bloque mide lo mismo tenga el ejercicio 1,
      2 o 3 niveles, y el desplegable de abajo no cambia de lugar. */
-  #trainView .body-muscles{ margin-top:6px; min-height:calc(3 * 2.6 * 12.5px + 2 * 3px); }
+  #trainView .body-muscles{ margin-top:6px; min-height:calc(3 * 2.6 * 12.5px * var(--ui-scale) + 2 * 3px); }
   #trainView .tier-row.primary,
   #trainView .tier-row.secondary,
   #trainView .tier-row.tertiary{
-    font-size:12.5px;
+    font-size:calc(12.5px * var(--ui-scale));
     height:2.6em;
     overflow:hidden;
     display:-webkit-box;
@@ -518,7 +521,7 @@
     margin-bottom:8px;
   }
   .ex-name{
-    font-size:17px;
+    font-size:calc(17px * var(--ui-scale));
     font-weight:600;
     flex:1;
     min-width:0;
@@ -659,6 +662,7 @@
      muestra todos los ejercicios del día y salta directo a cualquiera; un
      listener de scroll en el carrusel mantiene sincronizados el diagrama de
      arriba y qué número está activo mientras el usuario desliza a mano. */
+  #exCarousel .field label{ font-size:calc(12.5px * var(--ui-scale)); }
   .ex-carousel{
     display:flex;
     overflow-x:auto;
@@ -721,13 +725,13 @@
   .ex-pager.hidden{ display:none; }
   .add-ex-icon{
     flex:0 0 auto;
-    width:28px;
-    height:28px;
+    width:calc(28px * var(--ui-scale));
+    height:calc(28px * var(--ui-scale));
     border-radius:50%;
     border:1px dashed var(--border);
     background:transparent;
     color:var(--text-dim);
-    font-size:18px;
+    font-size:calc(18px * var(--ui-scale));
     font-weight:700;
     line-height:1;
     cursor:pointer;
@@ -738,14 +742,14 @@
   }
   .ex-pager-btn{
     flex:0 0 auto;
-    width:28px;
-    height:28px;
+    width:calc(28px * var(--ui-scale));
+    height:calc(28px * var(--ui-scale));
     border-radius:50%;
     border:1px solid var(--border);
     background:var(--bg-elev-2);
     color:var(--text-dim);
     font-family:inherit;
-    font-size:13px;
+    font-size:calc(13px * var(--ui-scale));
     font-weight:700;
     cursor:pointer;
     padding:0;
@@ -773,7 +777,7 @@
     align-items:center;
     gap:6px;
     font-family:inherit;
-    font-size:13px;
+    font-size:calc(13px * var(--ui-scale));
     font-weight:700;
     color:var(--text);
     background:var(--bg-elev-2);
@@ -848,6 +852,15 @@
   }
   .done-dd-reset:disabled{ opacity:.45; cursor:default; }
   /* ---- Ajustes: orden de campos ---- */
+  .ui-scale-row{ display:flex; align-items:center; gap:10px; margin-top:12px; }
+  .ui-scale-row input[type=range]{ flex:1; accent-color:var(--accent); min-width:0; }
+  .ui-scale-a{ font-weight:700; color:var(--text-dim); line-height:1; }
+  .ui-scale-val{ font-size:13px; font-weight:700; min-width:40px; text-align:right; font-variant-numeric:tabular-nums; }
+  .ui-scale-reset{
+    margin-top:8px; font-family:inherit; font-size:12.5px; font-weight:700;
+    color:var(--text-dim); background:none; border:none; padding:4px 0; cursor:pointer;
+  }
+  .ui-scale-reset:disabled{ opacity:.4; cursor:default; }
   .field-order{ display:flex; flex-direction:column; gap:6px; margin-top:10px; }
   .field-order-row{
     display:flex;
@@ -1477,6 +1490,18 @@ try{
     </div>
 
     <div class="settings-section">
+      <div class="settings-row-label">Tamaño en la pantalla de ejercicios</div>
+      <div class="settings-row-hint">Agranda o achica textos, números y controles de cada día. Las ruedas siguen aprovechando el espacio libre, hasta el máximo de este tamaño.</div>
+      <div class="ui-scale-row">
+        <span class="ui-scale-a" style="font-size:12px;">A</span>
+        <input type="range" id="uiScaleRange" min="80" max="120" step="5" aria-label="Tamaño en la pantalla de ejercicios">
+        <span class="ui-scale-a" style="font-size:20px;">A</span>
+        <span class="ui-scale-val" id="uiScaleVal">100%</span>
+      </div>
+      <button type="button" class="ui-scale-reset" id="uiScaleReset">Restablecer (100%)</button>
+    </div>
+
+    <div class="settings-section">
       <div class="settings-row-label">Orden de los campos</div>
       <div class="settings-row-hint">Cómo se ordenan series, peso y repeticiones en cada ejercicio. Usá las flechas para ponerlos en el orden que quieras.</div>
       <div class="field-order" id="fieldOrderList"></div>
@@ -1661,7 +1686,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.15.0";
+  var APP_VERSION = "1.16.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1809,6 +1834,9 @@ try{
       "En la pantalla de cada día, el texto al lado del cuerpo ahora tiene lugares fijos: el nombre del ejercicio, Principal/Secundario/Terciario y el desplegable \"Hechos\" ya no se corren cuando cambiás de ejercicio o el nombre es largo (si algo no entra se corta con \"…\").",
       "Textos más grandes en esa pantalla (nombre, músculos, títulos de series/peso/repeticiones y guía numerada), y las ruedas de series/peso/repeticiones crecen solas para aprovechar el espacio libre de abajo, con números bastante más grandes.",
       "La versión instalada, el botón de buscar actualización y el historial de versiones se movieron al final de Ajustes (antes se abrían tocando \"Mi Rutina\" arriba)."
+    ],
+    "1.16.0": [
+      "Nuevo en Ajustes: \"Tamaño en la pantalla de ejercicios\", un selector de 80% a 120% para achicar o agrandar textos, números y controles de cada día a tu gusto. Se ve el cambio al instante y las ruedas de series/peso/repeticiones siguen aprovechando el espacio libre, hasta el máximo del tamaño que elijas. Botón \"Restablecer\" para volver al 100%."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2174,6 +2202,14 @@ try{
        FIELD_DEFAULT_ORDER.every(function(k){ return savedOrder.indexOf(k) !== -1; })){
       fieldOrder = savedOrder;
     }
+  }catch(e){}
+
+  // Escala de la pantalla de ejercicios (0.8–1.2), también por dispositivo.
+  var UI_SCALE_KEY = "gymTrackerUiScale_v1";
+  var uiScale = 1;
+  try{
+    var savedScale = parseFloat(localStorage.getItem(UI_SCALE_KEY));
+    if(savedScale >= 0.8 && savedScale <= 1.2) uiScale = savedScale;
   }catch(e){}
 
   // Ejercicios marcados como hechos, por día: { dayId: [exId, ...] }.
@@ -2675,6 +2711,28 @@ try{
     });
   }
   renderSchemeGrid();
+
+  function renderUiScale(){
+    var pct = Math.round(uiScale * 100);
+    document.getElementById("uiScaleRange").value = pct;
+    document.getElementById("uiScaleVal").textContent = pct + "%";
+    document.getElementById("uiScaleReset").disabled = pct === 100;
+  }
+  function setUiScale(v){
+    uiScale = Math.max(0.8, Math.min(1.2, Math.round(v * 100) / 100));
+    try{ localStorage.setItem(UI_SCALE_KEY, String(uiScale)); }catch(e){}
+    document.documentElement.style.setProperty("--ui-scale", uiScale);
+    renderUiScale();
+    // fitTrainView() vuelve a partir de wheelBase() (ya con la escala nueva)
+    // y reparte de nuevo el espacio libre; se fuerza un valor distinto antes
+    // para que setWheelItemH() no lo descarte por "no cambió".
+    wheelItemH = -1;
+    fitTrainView();
+    if(wheelItemH === -1) setWheelItemH(wheelBase());
+  }
+  document.getElementById("uiScaleRange").addEventListener("input", function(){ setUiScale(this.value / 100); });
+  document.getElementById("uiScaleReset").addEventListener("click", function(){ setUiScale(1); });
+  renderUiScale();
 
   var ICON_UP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>';
   var ICON_DOWN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
@@ -3380,8 +3438,12 @@ try{
   // requiera scrollear desde cero cada vez.
   // Alto de cada ítem de las ruedas (px). Lo cambia setWheelItemH() desde
   // fitTrainView(); las ruedas lo leen en vivo, no lo copian al crearse.
-  var WHEEL_H_MIN = 26, WHEEL_H_BASE = 34, WHEEL_H_MAX = 54;
-  var wheelItemH = WHEEL_H_BASE;
+  function wheelMin(){ return Math.round(26 * uiScale); }
+  function wheelBase(){ return Math.round(34 * uiScale); }
+  function wheelMax(){ return Math.round(54 * uiScale); }
+  var wheelItemH = wheelBase();
+  document.documentElement.style.setProperty("--ui-scale", uiScale);
+  document.documentElement.style.setProperty("--wheel-item-h", wheelItemH + "px");
 
   function buildWheel(opts){
     var values = [];
@@ -3586,7 +3648,7 @@ try{
     if(!svg) return;
     var root = document.documentElement;
     root.style.removeProperty("--main-body-width");
-    setWheelItemH(WHEEL_H_BASE);
+    setWheelItemH(wheelBase());
     var viewportH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
     var saveCard = document.querySelector("#trainView .save-bar-card");
     var padBottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
@@ -3604,11 +3666,11 @@ try{
       // el cuerpo ya no puede achicarse más (piso legible) y aún sobra
       // contenido: se le pide lo que falta a las ruedas, hasta un mínimo
       var left = saveCard.getBoundingClientRect().bottom + window.scrollY + padBottom - viewportH;
-      if(left > 0) setWheelItemH(Math.max(WHEEL_H_MIN, WHEEL_H_BASE - Math.ceil(left / 3)));
+      if(left > 0) setWheelItemH(Math.max(wheelMin(), wheelBase() - Math.ceil(left / 3)));
       return;
     }
     var extra = Math.floor((-overflow - 8) / 3);
-    if(extra > 0) setWheelItemH(Math.min(WHEEL_H_MAX, WHEEL_H_BASE + extra));
+    if(extra > 0) setWheelItemH(Math.min(wheelMax(), wheelBase() + extra));
   }
 
   function renderExercises(){
