@@ -198,6 +198,24 @@
     align-items:center;
     gap:6px;
   }
+  /* Editor de ejercicio: los dos cuerpos van uno abajo del otro (frente y
+     después espalda) y bien grandes, a casi todo el ancho de la hoja, para
+     poder tocar cada músculo con precisión; la hoja scrollea mientras se
+     completa y los botones de guardar/cancelar quedan al final. */
+  .body-card.editable{ padding:14px 10px; }
+  .body-card.editable .bodies{ flex-direction:column; align-items:center; gap:22px; width:100%; }
+  .body-card.editable .body-col{ width:100%; }
+  .body-card.editable .body-label{ font-size:13px; }
+  .body-card.editable .body-svg{ width:min(100%, 340px); margin:0 auto; }
+  .editor-tier-sticky{
+    position:sticky;
+    top:-18px; /* el offset se mide desde adentro del padding de la hoja (18px) */
+    z-index:3;
+    margin:0 -18px;
+    padding:8px 18px;
+    background:var(--bg-elev);
+    border-bottom:1px solid var(--border);
+  }
   .body-label{
     font-size:calc(11.5px * var(--ui-scale));
     color:var(--text-dim);
@@ -1762,14 +1780,18 @@ try{
       <input type="text" id="editorName" placeholder="Ej: Press francés">
     </div>
 
-    <div class="field" style="margin-bottom:4px;">
+    <div class="field" style="margin-bottom:0;">
       <label>Nivel muscular a asignar</label>
+      <div class="int-hint" style="margin:0 0 4px 0;">Elegí un nivel y tocá los músculos del cuerpo (primero el frente, después la espalda) para asignarlos. Tocá de nuevo para quitarlos.</div>
+    </div>
+    <!-- El selector de nivel queda fijo arriba mientras se scrollea por los
+         dos cuerpos, así se puede cambiar de nivel sin volver hacia arriba. -->
+    <div class="editor-tier-sticky">
       <div class="intensity" id="editorTierRow">
         <button class="int-btn tier-btn active" data-tier="primary">Principal</button>
         <button class="int-btn tier-btn" data-tier="secondary">Secundario</button>
         <button class="int-btn tier-btn" data-tier="tertiary">Terciario</button>
       </div>
-      <div class="int-hint">Tocá los músculos del cuerpo para asignarlos al nivel elegido. Tocá de nuevo para quitarlos.</div>
     </div>
 
     <div class="body-card editable" style="margin:12px 0 0 0;">
@@ -1852,7 +1874,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.20.1";
+  var APP_VERSION = "1.21.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2028,6 +2050,10 @@ try{
       "En \"Por días\", ahora se abre el día tocando en cualquier parte de la tarjeta (antes, debajo de \"N ejercicios\" solo hacía la animación del toque y no abría).",
       "El desplegable \"Hechos\" ya no se corta con muchos ejercicios: la lista tiene un alto máximo según el espacio visible y scrollea por dentro, con \"Reiniciar\" siempre a la vista (si abajo no hay lugar, se abre hacia arriba).",
       "Al marcar un ejercicio como hecho, sus letras saltan en onda y destellan de color hasta quedar en el color del grupo. Ya no se tachan."
+    ],
+    "1.21.0": [
+      "Al crear o editar un ejercicio, el dibujo de músculos ahora es mucho más grande: el frente arriba y la espalda abajo, cada uno a casi todo el ancho, para tocar cada músculo con más precisión. La hoja scrollea mientras completás el ejercicio y Guardar/Cancelar quedan al final.",
+      "El selector de nivel (Principal / Secundario / Terciario) queda fijo arriba mientras scrolleás, así cambiás de nivel sin volver hacia arriba."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
