@@ -852,6 +852,21 @@
   }
   .done-dd-reset:disabled{ opacity:.45; cursor:default; }
   /* ---- Ajustes: orden de campos ---- */
+  /* Mientras se arrastra el slider de tamaño, Ajustes se vuelve casi
+     transparente (queda visible solo esa sección) para ver el cambio en
+     vivo en la pantalla de atrás. Solo opacidad/fondo: ningún cambio de
+     layout, así el slider no se mueve bajo el dedo a mitad del arrastre. */
+  #settingsOverlay{ transition:background-color .15s; }
+  #settingsOverlay .modal-sheet, #settingsOverlay .modal-sheet > *{ transition:opacity .15s, background-color .15s, box-shadow .15s; }
+  #settingsOverlay.peeking{ background:transparent; }
+  #settingsOverlay.peeking .modal-sheet{ background:transparent; border-color:transparent; }
+  #settingsOverlay.peeking .modal-sheet > *:not(.peek-keep){ opacity:0; pointer-events:none; }
+  #settingsOverlay.peeking .peek-keep{
+    border-top-color:transparent;
+    background:color-mix(in srgb, var(--bg-elev) 78%, transparent);
+    box-shadow:0 0 0 12px color-mix(in srgb, var(--bg-elev) 78%, transparent);
+    border-radius:4px;
+  }
   .ui-scale-row{ display:flex; align-items:center; gap:10px; margin-top:12px; }
   .ui-scale-row input[type=range]{ flex:1; accent-color:var(--accent); min-width:0; }
   .ui-scale-a{ font-weight:700; color:var(--text-dim); line-height:1; }
@@ -1489,7 +1504,7 @@ try{
       <div class="scheme-grid" id="schemeGrid"></div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section peek-keep">
       <div class="settings-row-label">Tamaño en la pantalla de ejercicios</div>
       <div class="settings-row-hint">Agranda o achica textos, números y controles de cada día. Las ruedas siguen aprovechando el espacio libre, hasta el máximo de este tamaño.</div>
       <div class="ui-scale-row">
@@ -1686,7 +1701,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.16.0";
+  var APP_VERSION = "1.16.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1837,6 +1852,9 @@ try{
     ],
     "1.16.0": [
       "Nuevo en Ajustes: \"Tamaño en la pantalla de ejercicios\", un selector de 80% a 120% para achicar o agrandar textos, números y controles de cada día a tu gusto. Se ve el cambio al instante y las ruedas de series/peso/repeticiones siguen aprovechando el espacio libre, hasta el máximo del tamaño que elijas. Botón \"Restablecer\" para volver al 100%."
+    ],
+    "1.16.1": [
+      "Mientras arrastrás el slider de tamaño en Ajustes, el panel se vuelve casi transparente y queda visible solo el slider, así ves el cambio en vivo en la pantalla de ejercicios de atrás."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2731,6 +2749,24 @@ try{
     if(wheelItemH === -1) setWheelItemH(wheelBase());
   }
   document.getElementById("uiScaleRange").addEventListener("input", function(){ setUiScale(this.value / 100); });
+  // Ver el cambio en vivo: mientras el dedo/mouse está sobre el slider,
+  // Ajustes se hace transparente (ver .peeking en el CSS). Se suelta con
+  // pointerup/pointercancel en window (el puntero puede terminar fuera del
+  // slider) y, de respaldo, con "change" (que dispara al soltar).
+  (function(){
+    var overlay = document.getElementById("settingsOverlay");
+    var range = document.getElementById("uiScaleRange");
+    function peekOn(){ overlay.classList.add("peeking"); }
+    function peekOff(){ overlay.classList.remove("peeking"); }
+    range.addEventListener("pointerdown", peekOn);
+    range.addEventListener("touchstart", peekOn, { passive:true });
+    range.addEventListener("change", peekOff);
+    window.addEventListener("pointerup", peekOff);
+    window.addEventListener("pointercancel", peekOff);
+    window.addEventListener("touchend", peekOff);
+    window.addEventListener("touchcancel", peekOff);
+    window.addEventListener("blur", peekOff);
+  })();
   document.getElementById("uiScaleReset").addEventListener("click", function(){ setUiScale(1); });
   renderUiScale();
 
