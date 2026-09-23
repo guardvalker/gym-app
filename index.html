@@ -451,6 +451,33 @@
     text-align:center;
   }
   .custom-day-nav:active{ opacity:.85; }
+  /* "Batería" de progreso: el fondo de la tarjeta se divide en tantas
+     secciones como ejercicios tiene el día y se van llenando de abajo hacia
+     arriba a medida que se marcan como hechos. Va detrás del contenido
+     (z-index:0) y sin eventos de puntero, así no tapa ni el botón del día ni
+     el de editar. */
+  .custom-day-card{ overflow:hidden; }
+  .day-battery{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    display:flex;
+    flex-direction:column-reverse;
+    gap:2px;
+    padding:2px;
+    pointer-events:none;
+  }
+  .day-battery-seg{
+    flex:1 1 0;
+    min-height:0;
+    border-radius:calc(var(--radius) - 4px);
+    background:color-mix(in srgb, var(--text-dim) 7%, transparent);
+    transition:background .35s ease;
+  }
+  .day-battery-seg.on{ background:color-mix(in srgb, var(--accent) 34%, transparent); }
+  .day-battery.full .day-battery-seg.on{ background:color-mix(in srgb, var(--accent) 48%, transparent); }
+  .custom-day-nav{ position:relative; z-index:1; }
+  .custom-day-card .custom-day-edit{ z-index:2; }
   /* Doble clase (.custom-day-card .custom-day-edit) a propósito: necesita
      más especificidad que .icon-btn (definida más abajo en la hoja) para
      que su padding:0/border-radius:50%/tamaño fijo no queden pisados por
@@ -1793,7 +1820,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.19.0";
+  var APP_VERSION = "1.20.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1961,6 +1988,9 @@ try{
     "1.19.0": [
       "Los títulos \"Series\", \"Peso\" y \"Repeticiones\" ahora están bien centrados arriba de cada número.",
       "En el módulo de series/peso/repeticiones, los ejercicios de al lado ahora asoman a los costados, más chicos y apagados, para que se vea que hay otro ejercicio al que deslizarte (el primero muestra el siguiente a la derecha, el último el anterior a la izquierda). Al deslizar, el ejercicio que llega crece y el que se va se achica siguiendo tu dedo."
+    ],
+    "1.20.0": [
+      "En \"Por días\", el fondo de cada tarjeta ahora funciona como una batería: se divide en una sección por ejercicio del día y se va llenando de abajo hacia arriba a medida que marcás ejercicios como hechos. Cuando están todos, queda completa."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3318,6 +3348,22 @@ try{
 
       var card = document.createElement("div");
       card.className = "group-card custom-day-card";
+
+      // segmentos = ejercicios del día; llenos = los marcados como hechos
+      // (solo ids que siguen existiendo en el día, por si se borró alguno)
+      var exs = data.templates[d.id] || [];
+      var doneIds = doneMap[d.id] || [];
+      var doneCount = exs.filter(function(e){ return doneIds.indexOf(e.id) !== -1; }).length;
+      if(exs.length){
+        var battery = document.createElement("div");
+        battery.className = "day-battery" + (doneCount === exs.length ? " full" : "");
+        for(var i = 0; i < exs.length; i++){
+          var seg = document.createElement("div");
+          seg.className = "day-battery-seg" + (i < doneCount ? " on" : "");
+          battery.appendChild(seg);
+        }
+        card.appendChild(battery);
+      }
 
       var nav = document.createElement("button");
       nav.type = "button";
