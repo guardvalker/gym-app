@@ -436,17 +436,22 @@
   }
 
   /* ---------- Home: por días (rutinas propias, cualquier combinación) ---------- */
-  .custom-day-card{ position:relative; padding:16px 10px 14px 10px; }
+  /* el padding vive en el botón de navegación (no en la tarjeta) y el botón
+     ocupa TODO el alto: así tocar en cualquier parte de la tarjeta, incluso
+     debajo del "N ejercicios", abre el día — antes solo respondía sobre el
+     ícono y los textos y en el resto solo hacía la animación de apretado. */
+  .custom-day-card{ position:relative; padding:0; align-items:stretch; }
   .custom-day-nav{
     display:flex;
     flex-direction:column;
     align-items:center;
     gap:6px;
     width:100%;
+    flex:1 1 auto;
     background:none;
     border:none;
     font-family:inherit;
-    padding:0;
+    padding:16px 10px 14px 10px;
     cursor:pointer;
     text-align:center;
   }
@@ -888,7 +893,10 @@
     padding:6px;
   }
   .done-dd-panel.hidden{ display:none; }
-  .done-dd-list{ max-height:min(46vh, 320px); overflow-y:auto; }
+  /* El alto máximo real de la lista lo fija positionDoneDropdown() en JS
+     contra el espacio visible; este valor es solo el respaldo. "Reiniciar"
+     queda fuera de la lista, así siempre se ve, y la lista scrollea. */
+  .done-dd-list{ max-height:min(46vh, 320px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
   .done-dd-item{
     display:flex;
     align-items:center;
@@ -907,7 +915,31 @@
   .done-dd-item:active{ background:var(--bg-elev-2); }
   .done-dd-num{ flex:0 0 auto; width:20px; font-size:12px; font-weight:700; color:var(--text-dim); }
   .done-dd-name{ flex:1; min-width:0; }
-  .done-dd-item.done .done-dd-name{ color:var(--text-dim); text-decoration:line-through; }
+  .done-dd-item.done .done-dd-name{ color:var(--current-group-color); font-weight:700; }
+  /* Al marcar un ejercicio como hecho (solo en ese momento, no al reabrir la
+     lista): cada letra salta en onda y destella de color, y la tilde "pega"
+     un pequeño rebote. */
+  .dd-word{ display:inline-block; white-space:nowrap; }
+  .dd-word + .dd-word::before{ content:" "; white-space:pre; }
+  .dd-ch{ display:inline-block; }
+  .done-dd-item.just-done .dd-ch{
+    animation:ddLetter .55s cubic-bezier(.3,1.6,.5,1) both;
+    animation-delay:calc(var(--i) * 28ms);
+  }
+  .done-dd-item.just-done .done-dd-box{ animation:ddBoxPop .45s cubic-bezier(.3,1.7,.5,1); }
+  @keyframes ddLetter{
+    0%{ transform:translateY(0) scale(1); color:var(--text); }
+    40%{ transform:translateY(-6px) scale(1.3); color:var(--accent-2); }
+    100%{ transform:translateY(0) scale(1); color:var(--current-group-color); }
+  }
+  @keyframes ddBoxPop{
+    0%{ transform:scale(.6); }
+    60%{ transform:scale(1.25); }
+    100%{ transform:scale(1); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .done-dd-item.just-done .dd-ch, .done-dd-item.just-done .done-dd-box{ animation:none; }
+  }
   .done-dd-box{
     flex:0 0 auto;
     width:20px;
@@ -1820,7 +1852,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.20.0";
+  var APP_VERSION = "1.20.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1991,6 +2023,11 @@ try{
     ],
     "1.20.0": [
       "En \"Por días\", el fondo de cada tarjeta ahora funciona como una batería: se divide en una sección por ejercicio del día y se va llenando de abajo hacia arriba a medida que marcás ejercicios como hechos. Cuando están todos, queda completa."
+    ],
+    "1.20.1": [
+      "En \"Por días\", ahora se abre el día tocando en cualquier parte de la tarjeta (antes, debajo de \"N ejercicios\" solo hacía la animación del toque y no abría).",
+      "El desplegable \"Hechos\" ya no se corta con muchos ejercicios: la lista tiene un alto máximo según el espacio visible y scrollea por dentro, con \"Reiniciar\" siempre a la vista (si abajo no hay lugar, se abre hacia arriba).",
+      "Al marcar un ejercicio como hecho, sus letras saltan en onda y destellan de color hasta quedar en el color del grupo. Ya no se tachan."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3912,6 +3949,8 @@ try{
     saveDone();
   }
 
+  var justDoneId = null; // ejercicio recién marcado: solo ese anima las letras
+
   function closeDoneDropdown(){
     document.getElementById("doneDdPanel").classList.add("hidden");
     document.getElementById("doneDdBtn").setAttribute("aria-expanded", "false");
@@ -3955,10 +3994,33 @@ try{
         '<span class="done-dd-num">' + (idx + 1) + '</span>' +
         '<span class="done-dd-name"></span>' +
         '<span class="done-dd-box">' + ICON_CHECK + '</span>';
-      item.querySelector(".done-dd-name").textContent = e.name;
+      var nameEl = item.querySelector(".done-dd-name");
+      if(done && e.id === justDoneId){
+        item.classList.add("just-done");
+        var ci = 0;
+        e.name.split(" ").forEach(function(word){
+          if(!word) return;
+          var w = document.createElement("span");
+          w.className = "dd-word";
+          word.split("").forEach(function(ch){
+            var c = document.createElement("span");
+            c.className = "dd-ch";
+            c.style.setProperty("--i", ci++);
+            c.textContent = ch;
+            w.appendChild(c);
+          });
+          nameEl.appendChild(w);
+        });
+      } else {
+        nameEl.textContent = e.name;
+      }
       item.addEventListener("click", function(){
-        setDone(e.id, !isDone(e.id));
+        var nowDone = !isDone(e.id);
+        justDoneId = nowDone ? e.id : null;
+        var keepScroll = list.scrollTop;
+        setDone(e.id, nowDone);
         renderDoneDropdown();
+        document.getElementById("doneDdList").scrollTop = keepScroll;
       });
       list.appendChild(item);
     });
@@ -3966,7 +4028,38 @@ try{
     document.querySelectorAll(".ex-pager-btn").forEach(function(b){
       b.classList.toggle("done", kept.indexOf(b.dataset.exId) !== -1);
     });
+    positionDoneDropdown();
   }
+
+  // Acota la lista al espacio realmente visible: si hay lugar abajo del botón
+  // el panel se abre hacia abajo; si no (ej. muchos ejercicios y la tarjeta
+  // ya está cerca del borde), se abre hacia arriba. En ambos casos la lista
+  // scrollea por dentro y "Reiniciar" queda siempre a la vista.
+  function positionDoneDropdown(){
+    var panel = document.getElementById("doneDdPanel");
+    if(panel.classList.contains("hidden")) return;
+    var list = document.getElementById("doneDdList");
+    var card = panel.offsetParent;
+    var btn = document.getElementById("doneDdBtn");
+    var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    var cardR = card.getBoundingClientRect();
+    var btnR = btn.getBoundingClientRect();
+    var chrome = panel.offsetHeight - list.offsetHeight; // padding + bordes + Reiniciar
+    var margin = 12;
+    var below = vh - (cardR.bottom - 6) - margin;
+    var above = btnR.top - 6 - margin;
+    var up = below < 200 && above > below;
+    var room = Math.max(Math.min(up ? above : below, 420) - chrome, 96);
+    list.style.maxHeight = room + "px";
+    if(up){
+      panel.style.top = "auto";
+      panel.style.bottom = (cardR.bottom - btnR.top + 6) + "px";
+    } else {
+      panel.style.top = "";
+      panel.style.bottom = "";
+    }
+  }
+  window.addEventListener("resize", positionDoneDropdown);
 
   document.getElementById("doneDdBtn").addEventListener("click", function(ev){
     ev.stopPropagation();
@@ -3974,9 +4067,11 @@ try{
     var open = panel.classList.contains("hidden");
     panel.classList.toggle("hidden", !open);
     this.setAttribute("aria-expanded", open ? "true" : "false");
+    if(open) positionDoneDropdown();
   });
   document.getElementById("doneDdReset").addEventListener("click", function(){
     doneMap[currentDay] = [];
+    justDoneId = null;
     saveDone();
     renderDoneDropdown();
   });
