@@ -1,4 +1,4 @@
-const CACHE = "gym-app-v48";
+const CACHE = "gym-app-v49";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./bodies.js"];
 
 self.addEventListener("install", (event) => {

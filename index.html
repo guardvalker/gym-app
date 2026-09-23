@@ -945,6 +945,24 @@
     animation-delay:calc(var(--i) * 28ms);
   }
   .done-dd-item.just-done .done-dd-box{ animation:ddBoxPop .45s cubic-bezier(.3,1.7,.5,1); }
+  /* Deseleccionar: las letras "se apagan" — bajan un poco, se achican y
+     pierden el color hasta quedar en el neutro (mismo lenguaje que al
+     marcar, pero en sentido contrario). */
+  .done-dd-item.just-undone .dd-ch{
+    animation:ddLetterOff .5s ease-out both;
+    animation-delay:calc(var(--i) * 18ms);
+  }
+  .done-dd-item.just-undone .done-dd-box{ animation:ddBoxOff .35s ease-out; }
+  @keyframes ddLetterOff{
+    0%{ transform:translateY(0) scale(1); color:var(--current-group-color); }
+    35%{ transform:translateY(4px) scale(.82); color:var(--current-group-color); opacity:.6; }
+    100%{ transform:translateY(0) scale(1); color:var(--text); opacity:1; }
+  }
+  @keyframes ddBoxOff{
+    0%{ transform:scale(1); background:var(--current-group-color); }
+    50%{ transform:scale(.7) rotate(-12deg); }
+    100%{ transform:scale(1); }
+  }
   @keyframes ddLetter{
     0%{ transform:translateY(0) scale(1); color:var(--text); }
     40%{ transform:translateY(-6px) scale(1.3); color:var(--accent-2); }
@@ -955,8 +973,99 @@
     60%{ transform:scale(1.25); }
     100%{ transform:scale(1); }
   }
+  /* ---- Animaciones de selección (JS: playAnim) ----
+     .a-pop-on: lo que se acaba de seleccionar rebota y suelta un aro de color;
+     .a-pop-off: lo que se acaba de deseleccionar se "desinfla" y vuelve. Se
+     aplican solo en el momento del cambio (nunca al redibujar la pantalla),
+     por eso van por clase temporal y no colgadas del estado. */
+  .a-pop-on{ animation:aPopOn .45s cubic-bezier(.3,1.6,.5,1); }
+  .a-pop-off{ animation:aPopOff .35s ease-out; }
+  @keyframes aPopOn{
+    0%{ transform:scale(.86); box-shadow:0 0 0 0 color-mix(in srgb, var(--current-group-color) 55%, transparent); }
+    55%{ transform:scale(1.1); }
+    100%{ transform:scale(1); box-shadow:0 0 0 9px transparent; }
+  }
+  @keyframes aPopOff{
+    0%{ transform:scale(1); opacity:1; }
+    40%{ transform:scale(.88); opacity:.55; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  /* la guía numerada scrollea (overflow recorta): su rebote va sin aro */
+  .ex-pager-btn.a-pop-on{ animation-name:aPopPager; }
+  @keyframes aPopPager{ 0%{ transform:scale(.85); } 55%{ transform:scale(1.07); } 100%{ transform:scale(1); } }
+  .mode-tab, .seg-btn, .int-btn{ transition:background-color .25s, color .25s, border-color .25s; }
+  .mode-tab.a-pop-on, .seg-btn.a-pop-on{ --current-group-color:var(--accent); }
+  /* "Hechos n/m": el contador rebota cada vez que cambia y, al completar
+     todos, el botón suelta un destello. */
+  #doneDdLabel{ display:inline-block; }
+  #doneDdLabel.a-count{ animation:aCount .4s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes aCount{ 0%{ transform:translateY(0); } 35%{ transform:translateY(-4px) scale(1.15); color:var(--current-group-color); } 100%{ transform:translateY(0); } }
+  .done-dd-btn.a-all{ animation:aAll .8s ease-out; }
+  @keyframes aAll{
+    0%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--current-group-color) 70%, transparent); transform:scale(1); }
+    30%{ transform:scale(1.07); }
+    100%{ box-shadow:0 0 0 16px transparent; transform:scale(1); }
+  }
+  /* Editor de músculos: al asignar una zona "late" y se enciende; al quitarla
+     se contrae y se apaga. */
+  .zone{ transform-box:fill-box; transform-origin:center; }
+  .zone.a-zone-in{ animation:aZoneIn .5s ease-out; }
+  .zone.a-zone-out{ animation:aZoneOut .4s ease-out; }
+  @keyframes aZoneIn{
+    0%{ transform:scale(.94); opacity:.4; }
+    45%{ transform:scale(1.07); opacity:1; filter:brightness(1.25); }
+    100%{ transform:scale(1); filter:none; }
+  }
+  @keyframes aZoneOut{
+    0%{ transform:scale(1.05); opacity:1; }
+    40%{ transform:scale(.92); opacity:.45; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  /* Comparativa: la marca del registro rebota con aro al elegirlo y gira
+     hacia adentro al soltarlo. */
+  .log-select-mark.a-mark-in{ animation:aMarkIn .45s cubic-bezier(.3,1.7,.5,1); }
+  .log-select-mark.a-mark-out{ animation:aMarkOut .35s ease-out; }
+  @keyframes aMarkIn{
+    0%{ transform:scale(.5); box-shadow:0 0 0 0 color-mix(in srgb, var(--log-group-color, var(--accent)) 60%, transparent); }
+    60%{ transform:scale(1.25); }
+    100%{ transform:scale(1); box-shadow:0 0 0 9px transparent; }
+  }
+  @keyframes aMarkOut{
+    0%{ transform:scale(1) rotate(0); }
+    50%{ transform:scale(.6) rotate(-90deg); }
+    100%{ transform:scale(1) rotate(0); }
+  }
+  /* Batería de "Por días": los tramos nuevos se cargan de a uno (de abajo
+     hacia arriba) con un destello; los que se sueltan se vacían de golpe; y
+     al completar el último pasa un brillo por toda la tarjeta. */
+  .day-battery-seg.charge{ animation:aSegCharge .55s cubic-bezier(.3,1.4,.5,1) both; animation-delay:var(--d, 0ms); }
+  .day-battery-seg.drain{ animation:aSegDrain .5s ease-out both; }
+  @keyframes aSegCharge{
+    0%{ background:color-mix(in srgb, var(--text-dim) 7%, transparent); transform:scale(.9,.5); transform-origin:bottom; }
+    55%{ background:color-mix(in srgb, var(--accent) 66%, transparent); transform:scale(1.02,1.05); transform-origin:bottom; }
+    100%{ transform:scale(1); transform-origin:bottom; }
+  }
+  @keyframes aSegDrain{
+    0%{ background:color-mix(in srgb, var(--accent) 34%, transparent); transform:scale(1); }
+    40%{ background:color-mix(in srgb, var(--accent) 12%, transparent); transform:scale(.94,.8); }
+    100%{ transform:scale(1); }
+  }
+  .day-battery.just-full::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(105deg, transparent 30%, rgba(255,255,255,.6) 50%, transparent 70%);
+    transform:translateX(-110%);
+    animation:aSheen .9s ease-out .55s forwards;
+  }
+  @keyframes aSheen{ to{ transform:translateX(110%); } }
   @media (prefers-reduced-motion:reduce){
-    .done-dd-item.just-done .dd-ch, .done-dd-item.just-done .done-dd-box{ animation:none; }
+    .done-dd-item.just-done .dd-ch, .done-dd-item.just-done .done-dd-box,
+    .done-dd-item.just-undone .dd-ch, .done-dd-item.just-undone .done-dd-box,
+    .a-pop-on, .a-pop-off, #doneDdLabel.a-count, .done-dd-btn.a-all,
+    .zone.a-zone-in, .zone.a-zone-out, .log-select-mark.a-mark-in, .log-select-mark.a-mark-out,
+    .day-battery-seg.charge, .day-battery-seg.drain{ animation:none; }
+    .day-battery.just-full::after{ display:none; }
   }
   .done-dd-box{
     flex:0 0 auto;
@@ -1874,7 +1983,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.21.0";
+  var APP_VERSION = "1.22.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2054,6 +2163,13 @@ try{
     "1.21.0": [
       "Al crear o editar un ejercicio, el dibujo de músculos ahora es mucho más grande: el frente arriba y la espalda abajo, cada uno a casi todo el ancho, para tocar cada músculo con más precisión. La hoja scrollea mientras completás el ejercicio y Guardar/Cancelar quedan al final.",
       "El selector de nivel (Principal / Secundario / Terciario) queda fijo arriba mientras scrolleás, así cambiás de nivel sin volver hacia arriba."
+    ],
+    "1.22.0": [
+      "Más animaciones al seleccionar y también al deseleccionar (antes solo cambiaba a gris): al desmarcar un ejercicio hecho, las letras \"se apagan\" bajando y perdiendo el color; el número de la guía rebota al marcarse y se desinfla al soltarse; y el contador \"Hechos n/m\" salta cada vez que cambia y da un destello al completar todos.",
+      "En el editor de ejercicio, cada músculo que asignás late y se enciende con su color, y al quitarlo se contrae y se apaga. Los botones de nivel, las pestañas de la home y los segmentos de Ajustes rebotan al activarse.",
+      "La batería de \"Por días\" ahora se carga tramo a tramo con un destello al volver a la home, se vacía con animación al desmarcar, y al completar todos pasa un brillo por la tarjeta.",
+      "En la comparativa de registros, la marca de cada registro rebota con un aro al elegirlo y gira hacia adentro al soltarlo.",
+      "Si tu celular tiene activado \"reducir movimiento\", las animaciones se desactivan."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2669,10 +2785,14 @@ try{
     ["primary","secondary","tertiary"].forEach(function(t){
       m[t] = m[t].filter(function(x){ return x !== zoneId; });
     });
-    if(currentTier !== editorState.tier){
+    var assigned = currentTier !== editorState.tier;
+    if(assigned){
       m[editorState.tier].push(zoneId);
     }
     renderEditorBody();
+    document.querySelectorAll("#editorBodyFrontMount .zone, #editorBodyBackMount .zone").forEach(function(z){
+      if(z.getAttribute("data-zone") === zoneId) playAnim(z, assigned ? "a-zone-in" : "a-zone-out");
+    });
   }
 
   function setEditorTier(tier){
@@ -3401,6 +3521,8 @@ try{
     '<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path>' +
     '</svg>';
 
+  var batteryShown = {}; // dayId -> cuántos tramos llenos se mostraron la última vez
+
   function renderCustomDaysView(){
     var wrap = document.getElementById("customDayCards");
     wrap.innerHTML = "";
@@ -3417,12 +3539,25 @@ try{
       var exs = data.templates[d.id] || [];
       var doneIds = doneMap[d.id] || [];
       var doneCount = exs.filter(function(e){ return doneIds.indexOf(e.id) !== -1; }).length;
+      // vs. lo que mostró la última vez: los tramos que cambiaron se animan
+      // (se cargan / se vacían); la primera vez que se dibuja no anima nada.
+      var prevCount = batteryShown[d.id];
+      batteryShown[d.id] = doneCount;
       if(exs.length){
         var battery = document.createElement("div");
-        battery.className = "day-battery" + (doneCount === exs.length ? " full" : "");
+        var full = doneCount === exs.length;
+        battery.className = "day-battery" + (full ? " full" : "") + (full && prevCount !== undefined && prevCount < doneCount ? " just-full" : "");
         for(var i = 0; i < exs.length; i++){
           var seg = document.createElement("div");
           seg.className = "day-battery-seg" + (i < doneCount ? " on" : "");
+          if(prevCount !== undefined){
+            if(i >= prevCount && i < doneCount){
+              seg.classList.add("charge");
+              seg.style.setProperty("--d", ((i - prevCount) * 110) + "ms");
+            } else if(i >= doneCount && i < prevCount){
+              seg.classList.add("drain");
+            }
+          }
           battery.appendChild(seg);
         }
         card.appendChild(battery);
@@ -3976,6 +4111,55 @@ try{
   }
 
   var justDoneId = null; // ejercicio recién marcado: solo ese anima las letras
+  var justUndoneId = null; // ejercicio recién desmarcado: anima el apagado
+
+  // Reproduce una animación CSS de una sola vez sobre un elemento: pone la
+  // clase, la saca al terminar (o por las dudas a los 1.2s, p. ej. con
+  // "reducir movimiento" donde animationend no llega) y permite repetirla.
+  function playAnim(el, cls){
+    if(!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    var done = function(){ el.classList.remove(cls); el.removeEventListener("animationend", onEnd); };
+    var onEnd = function(ev){ if(ev.target === el) done(); };
+    el.addEventListener("animationend", onEnd);
+    setTimeout(done, 1200);
+  }
+
+  // Botones de selección única (pestañas de la home, tabs de nivel, segmentos
+  // de Ajustes): el que pasa a activo rebota y el que se apaga se desinfla.
+  // Se mira después del handler propio de cada botón, que es quien cambia
+  // la clase .active.
+  var prevActiveBtn = null;
+  document.addEventListener("click", function(ev){
+    var b = ev.target.closest(".mode-tab, .seg-btn, .tier-btn");
+    if(!b) return;
+    prevActiveBtn = b.parentNode.querySelector(".active");
+    requestAnimationFrame(function(){
+      if(b.classList.contains("active") && b !== prevActiveBtn) playAnim(b, "a-pop-on");
+      if(prevActiveBtn && prevActiveBtn !== b && !prevActiveBtn.classList.contains("active")) playAnim(prevActiveBtn, "a-pop-off");
+    });
+  }, true);
+
+  // Arma el nombre como letras sueltas (agrupadas por palabra para que el
+  // salto de línea corte entre palabras y no a mitad de una).
+  function fillLetters(nameEl, name){
+    var ci = 0;
+    name.split(" ").forEach(function(word){
+      if(!word) return;
+      var w = document.createElement("span");
+      w.className = "dd-word";
+      word.split("").forEach(function(ch){
+        var c = document.createElement("span");
+        c.className = "dd-ch";
+        c.style.setProperty("--i", ci++);
+        c.textContent = ch;
+        w.appendChild(c);
+      });
+      nameEl.appendChild(w);
+    });
+  }
 
   function closeDoneDropdown(){
     document.getElementById("doneDdPanel").classList.add("hidden");
@@ -4003,8 +4187,16 @@ try{
     }
 
     var btn = document.getElementById("doneDdBtn");
-    document.getElementById("doneDdLabel").textContent = "Hechos " + kept.length + "/" + exs.length;
+    var labelEl = document.getElementById("doneDdLabel");
+    var newLabel = "Hechos " + kept.length + "/" + exs.length;
+    var labelChanged = labelEl.textContent !== newLabel && labelEl.textContent !== "";
+    var wasAll = btn.classList.contains("all");
+    labelEl.textContent = newLabel;
     btn.classList.toggle("all", kept.length === exs.length);
+    if(labelChanged && (justDoneId || justUndoneId)){
+      playAnim(labelEl, "a-count");
+      if(!wasAll && kept.length === exs.length) playAnim(btn, "a-all");
+    }
     document.getElementById("doneDdReset").disabled = kept.length === 0;
 
     var list = document.getElementById("doneDdList");
@@ -4023,26 +4215,17 @@ try{
       var nameEl = item.querySelector(".done-dd-name");
       if(done && e.id === justDoneId){
         item.classList.add("just-done");
-        var ci = 0;
-        e.name.split(" ").forEach(function(word){
-          if(!word) return;
-          var w = document.createElement("span");
-          w.className = "dd-word";
-          word.split("").forEach(function(ch){
-            var c = document.createElement("span");
-            c.className = "dd-ch";
-            c.style.setProperty("--i", ci++);
-            c.textContent = ch;
-            w.appendChild(c);
-          });
-          nameEl.appendChild(w);
-        });
+        fillLetters(nameEl, e.name);
+      } else if(!done && e.id === justUndoneId){
+        item.classList.add("just-undone");
+        fillLetters(nameEl, e.name);
       } else {
         nameEl.textContent = e.name;
       }
       item.addEventListener("click", function(){
         var nowDone = !isDone(e.id);
         justDoneId = nowDone ? e.id : null;
+        justUndoneId = nowDone ? null : e.id;
         var keepScroll = list.scrollTop;
         setDone(e.id, nowDone);
         renderDoneDropdown();
@@ -4052,7 +4235,10 @@ try{
     });
 
     document.querySelectorAll(".ex-pager-btn").forEach(function(b){
-      b.classList.toggle("done", kept.indexOf(b.dataset.exId) !== -1);
+      var nowDone = kept.indexOf(b.dataset.exId) !== -1;
+      var wasDone = b.classList.contains("done");
+      b.classList.toggle("done", nowDone);
+      if(nowDone !== wasDone) playAnim(b, nowDone ? "a-pop-on" : "a-pop-off");
     });
     positionDoneDropdown();
   }
@@ -4098,6 +4284,7 @@ try{
   document.getElementById("doneDdReset").addEventListener("click", function(){
     doneMap[currentDay] = [];
     justDoneId = null;
+    justUndoneId = null;
     saveDone();
     renderDoneDropdown();
   });
@@ -4485,6 +4672,9 @@ try{
     document.querySelectorAll("#historyList .log").forEach(function(el){
       var selected = compareSelection.indexOf(el.dataset.logId) !== -1;
       var hide = !!lockedDayId && el.dataset.dayId !== lockedDayId && !selected;
+      if(selected !== el.classList.contains("compare-selected")){
+        playAnim(el.querySelector(".log-select-mark"), selected ? "a-mark-in" : "a-mark-out");
+      }
       el.classList.toggle("compare-selected", selected);
       el.classList.toggle("compare-hidden", hide);
     });
