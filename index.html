@@ -688,8 +688,15 @@
      muestra todos los ejercicios del día y salta directo a cualquiera; un
      listener de scroll en el carrusel mantiene sincronizados el diagrama de
      arriba y qué número está activo mientras el usuario desliza a mano. */
+  .ex-carousel::before, .ex-carousel::after{ content:""; flex:0 0 var(--peek); }
   #exCarousel .field{ min-width:0; }
+  /* las páginas son más angostas (asoman los vecinos): se aprieta un poco
+     el padding y la separación para que "Repeticiones" siga entrando */
+  #exCarousel .ex-page{ padding-left:12px; padding-right:12px; }
+  #exCarousel .row{ gap:8px; }
   #exCarousel .field label{
+    letter-spacing:.01em;
+    text-align:center;
     font-size:calc(12.5px * var(--ui-scale));
     white-space:nowrap;
     overflow:hidden;
@@ -707,15 +714,29 @@
        el snap/momentum nativo trae su propia animación de asentado que no
        se puede acortar desde CSS — el asentado ahora lo maneja JS
        (setupExerciseCarousel), con duración propia y corta. */
-    margin-bottom:8px;
+    /* el carrusel ocupa todo el ancho de la pantalla (se come el padding de
+       main) para que los vecinos tengan dónde asomar */
+    margin:0 -16px 8px -16px;
+    --peek:22px;
+    --pk-gap:8px;
+    gap:var(--pk-gap);
+    position:relative; /* offsetLeft de las páginas se mide contra el carrusel */
     /* barra de scroll nativa oculta: la guía numerada de abajo ya indica
        en qué ejercicio se está, mostrar las dos era redundante. */
     scrollbar-width:none;
   }
   .ex-carousel::-webkit-scrollbar{ display:none; }
   .ex-carousel.hidden{ display:none; }
+  /* Cada página es más angosta que el carrusel: el ejercicio activo queda
+     centrado y de los vecinos asoma una franja (--peek) a cada lado, más
+     chicos y apagados (--pk-s / --pk-o los fija updatePeekStyles() según la
+     posición del scroll), para que se vea que hay otro ejercicio al que
+     deslizarse. Los ::before/::after son los espaciadores que permiten
+     centrar la primera y la última página. */
   .ex-page{
-    flex:0 0 100%;
+    flex:0 0 calc(100% - 2 * (var(--peek) + var(--pk-gap)));
+    transform:scale(var(--pk-s, 1));
+    opacity:var(--pk-o, 1);
     margin:0 !important;
     box-sizing:border-box;
     border-top:3px solid var(--current-group-color);
@@ -1772,7 +1793,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.18.0";
+  var APP_VERSION = "1.19.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -1936,6 +1957,10 @@ try{
       "En la pantalla de cada día, el nombre del ejercicio salió del módulo de series/peso/repeticiones y ahora está arriba de la tarjeta del gráfico muscular, con todo el ancho disponible para escribir (hasta 2 líneas). Los botones de editar, nota y eliminar se movieron ahí, al lado del nombre.",
       "El nombre del grupo (por ejemplo \"Pecho y Tríceps\") pasó a la derecha de \"‹ Grupos musculares\", en la misma fila, y esa fila extra ya no ocupa lugar.",
       "Arreglos al agrandar el tamaño: \"Repeticiones\" ya no se corta ni ensancha el módulo (si no entra se muestra \"Reps\")."
+    ],
+    "1.19.0": [
+      "Los títulos \"Series\", \"Peso\" y \"Repeticiones\" ahora están bien centrados arriba de cada número.",
+      "En el módulo de series/peso/repeticiones, los ejercicios de al lado ahora asoman a los costados, más chicos y apagados, para que se vea que hay otro ejercicio al que deslizarte (el primero muestra el siguiente a la derecha, el último el anterior a la izquierda). Al deslizar, el ejercicio que llega crece y el que se va se achica siguiendo tu dedo."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3405,6 +3430,8 @@ try{
       fitScreenRAF = null;
       fitGroupsGrid();
       fitTrainView();
+      // al cambiar el ancho (rotar el celular) la página activa se desalinea
+      if(currentView === "day" && activeExerciseId) goToExercisePage(activeExerciseId);
     });
   }
   window.addEventListener("resize", scheduleFitScreen);
@@ -3662,12 +3689,36 @@ try{
     if(activeBtn) activeBtn.scrollIntoView({ inline:"nearest", block:"nearest" });
   }
 
+  // Achica y apaga las páginas según qué tan lejos del centro del carrusel
+  // están (0 = centrada, 1 = a una página de distancia): así el ejercicio
+  // activo se ve a tamaño completo y los vecinos, más chicos y apagados,
+  // asoman a los costados — y la transición sigue al dedo mientras se
+  // desliza. Solo mide layout (offsetLeft/offsetWidth), que no se altera con
+  // los transform, a diferencia de getBoundingClientRect.
+  function updatePeekStyles(){
+    var carousel = document.getElementById("exCarousel");
+    var pages = carousel.querySelectorAll(".ex-page");
+    if(!pages.length || !carousel.clientWidth) return;
+    var stride = pages.length > 1 ? pages[1].offsetLeft - pages[0].offsetLeft : pages[0].offsetWidth || 1;
+    var center = carousel.scrollLeft + carousel.clientWidth / 2;
+    pages.forEach(function(pg){
+      var delta = (pg.offsetLeft + pg.offsetWidth / 2) - center;
+      var d = Math.min(1, Math.abs(delta) / stride);
+      pg.style.setProperty("--pk-s", (1 - 0.09 * d).toFixed(3));
+      pg.style.setProperty("--pk-o", (1 - 0.5 * d).toFixed(3));
+      // el vecino se achica hacia el lado del centro, no hacia su propio medio
+      pg.style.transformOrigin = delta < 0 ? "right center" : "left center";
+    });
+  }
+
   // Tocar la guía numerada salta al instante al ejercicio (sin animación
   // de scroll) — es un salto directo, no un "deslizar hasta ahí".
   function goToExercisePage(id){
     var carousel = document.getElementById("exCarousel");
     var page = carousel.querySelector('.ex-page[data-ex-id="' + id + '"]');
-    if(page) page.scrollIntoView({ behavior:"auto", inline:"start", block:"nearest" });
+    // la página queda centrada (con los vecinos asomando a los costados)
+    if(page) carousel.scrollLeft = page.offsetLeft - (carousel.clientWidth - page.offsetWidth) / 2;
+    updatePeekStyles();
     activeExerciseId = id;
     renderDiagram();
     updatePagerActive();
@@ -3935,18 +3986,24 @@ try{
       return !!(target.closest && target.closest(".icon-btn, .wheel-viewport"));
     }
 
-    function pageWidth(){ return carousel.clientWidth || 1; }
+    // Distancia de una página a la siguiente (ancho de página + separación):
+    // ya no es el ancho del carrusel, porque las páginas son más angostas
+    // para dejar asomar a los vecinos.
+    function pageWidth(){
+      var pages = carousel.querySelectorAll(".ex-page");
+      if(pages.length > 1) return (pages[1].offsetLeft - pages[0].offsetLeft) || 1;
+      return carousel.clientWidth || 1;
+    }
 
+    // scrollLeft que deja centrada la página `idx`. offsetLeft/offsetWidth
+    // son posición de layout dentro del contenido scrolleable (el carrusel
+    // es position:relative) y no cambian con el transform de los vecinos.
     function pageAt(idx){
       var pages = carousel.querySelectorAll(".ex-page");
       if(!pages.length) return null;
       idx = Math.max(0, Math.min(idx, pages.length - 1));
       var page = pages[idx];
-      // offsetLeft no sirve acá: es relativo al offsetParent, que no
-      // necesariamente es el carrusel (puede arrastrar padding de algún
-      // ancestro). Calculamos la posición real dentro del contenido
-      // scrolleable a partir de los bounding rects.
-      var left = carousel.scrollLeft + (page.getBoundingClientRect().left - carousel.getBoundingClientRect().left);
+      var left = page.offsetLeft - (carousel.clientWidth - page.offsetWidth) / 2;
       return { left: left, id: page.dataset.exId };
     }
 
@@ -4107,6 +4164,12 @@ try{
 
     // Respaldo para mouse/trackpad (no dispara eventos táctiles): asienta
     // por posición después de una pausa en el scroll.
+    var peekRAF = null;
+    carousel.addEventListener("scroll", function(){
+      if(peekRAF) return;
+      peekRAF = requestAnimationFrame(function(){ peekRAF = null; updatePeekStyles(); });
+    }, { passive:true });
+
     var scrollTimer = null;
     carousel.addEventListener("scroll", function(){
       if(mode === "h" || settling) return;
