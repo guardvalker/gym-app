@@ -1059,6 +1059,67 @@
     animation:aSheen .9s ease-out .55s forwards;
   }
   @keyframes aSheen{ to{ transform:translateX(110%); } }
+  /* Deslizar la tarjeta del ejercicio: hacia arriba lo marca como hecho, hacia
+     abajo lo desmarca. Mientras se arrastra, la tarjeta sigue un poco al dedo
+     y aparece un círculo (tilde = se va a marcar, X = se va a desmarcar) que
+     se va llenando; al soltar pasado el umbral el círculo vuela en el sentido
+     del gesto, el nombre hace la misma onda de letras que en "Hechos" y la
+     tarjeta suelta un aro. */
+  .swipe-badge{
+    position:absolute;
+    left:50%; top:50%;
+    width:56px; height:56px;
+    margin:-28px 0 0 -28px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--current-group-color);
+    color:var(--on-group-color, #fff);
+    box-shadow:0 6px 18px rgba(0,0,0,.3);
+    pointer-events:none;
+    z-index:6;
+    opacity:0;
+  }
+  .swipe-badge svg{ width:28px; height:28px; }
+  .swipe-badge.undo{ background:var(--text-dim); color:var(--bg-elev); }
+  .swipe-badge.fly-up{ animation:aFlyUp .75s ease-out forwards; }
+  .swipe-badge.fly-down{ animation:aFlyDown .6s ease-in forwards; }
+  @keyframes aFlyUp{
+    0%{ opacity:1; transform:translateY(22px) scale(1); }
+    30%{ opacity:1; transform:translateY(-2px) scale(1.25); }
+    100%{ opacity:0; transform:translateY(-58px) scale(.9); }
+  }
+  @keyframes aFlyDown{
+    0%{ opacity:1; transform:translateY(-14px) scale(1); }
+    100%{ opacity:0; transform:translateY(46px) scale(.45); }
+  }
+  #trainView .body-card.a-card-done{ animation:aCardDone .6s ease-out; }
+  #trainView .body-card.a-card-undone{ animation:aCardUndone .45s ease-out; }
+  @keyframes aCardDone{
+    0%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--current-group-color) 65%, transparent); }
+    100%{ box-shadow:0 0 0 14px transparent; }
+  }
+  @keyframes aCardUndone{
+    0%{ opacity:1; }
+    35%{ opacity:.6; }
+    100%{ opacity:1; }
+  }
+  /* el nombre del ejercicio hecho queda en el color del grupo (como en la
+     lista de "Hechos"); las letras usan las mismas ondas de ddLetter/ddLetterOff */
+  #bodyExName.is-done #bodyExNameText{ color:var(--current-group-color); }
+  #bodyExName.just-done .dd-ch{
+    animation:ddLetter .55s cubic-bezier(.3,1.6,.5,1) both;
+    animation-delay:calc(var(--i) * 28ms);
+  }
+  #bodyExName.just-undone .dd-ch{
+    animation:ddLetterOff .5s ease-out both;
+    animation-delay:calc(var(--i) * 18ms);
+  }
+  @media (prefers-reduced-motion:reduce){
+    .swipe-badge.fly-up, .swipe-badge.fly-down,
+    #trainView .body-card.a-card-done, #trainView .body-card.a-card-undone,
+    #bodyExName.just-done .dd-ch, #bodyExName.just-undone .dd-ch{ animation:none; }
+    .swipe-badge.fly-up, .swipe-badge.fly-down{ display:none; }
+  }
   @media (prefers-reduced-motion:reduce){
     .done-dd-item.just-done .dd-ch, .done-dd-item.just-done .done-dd-box,
     .done-dd-item.just-undone .dd-ch, .done-dd-item.just-undone .done-dd-box,
@@ -1983,7 +2044,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.22.0";
+  var APP_VERSION = "1.23.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2170,6 +2231,11 @@ try{
       "La batería de \"Por días\" ahora se carga tramo a tramo con un destello al volver a la home, se vacía con animación al desmarcar, y al completar todos pasa un brillo por la tarjeta.",
       "En la comparativa de registros, la marca de cada registro rebota con un aro al elegirlo y gira hacia adentro al soltarlo.",
       "Si tu celular tiene activado \"reducir movimiento\", las animaciones se desactivan."
+    ],
+    "1.23.0": [
+      "Deslizá el ejercicio hacia arriba para marcarlo como hecho y hacia abajo para desmarcarlo. Funciona sobre la tarjeta con el nombre y los cuerpos, y sobre la tarjeta de series/peso/repeticiones (menos sobre las ruedas, que siguen sirviendo para cambiar el valor).",
+      "Mientras arrastrás, la tarjeta te sigue un poco y aparece un círculo con una tilde (o una X si vas a desmarcar) que se va llenando; al soltar, el círculo vuela en el sentido del gesto, las letras del nombre hacen la onda de \"Hechos\" y la tarjeta suelta un aro. Si deslizás hacia el lado que no cambia nada (arriba en uno ya hecho), la tarjeta solo se estira y vuelve.",
+      "El nombre del ejercicio hecho ahora se ve en el color del grupo."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2741,6 +2807,7 @@ try{
       document.getElementById("bodyExName").title = "";
       document.getElementById("bodyMuscles").textContent = "para ver qué músculos trabaja";
       document.getElementById("bodyExActions").classList.add("hidden");
+      syncNameDone();
       return;
     }
 
@@ -2755,6 +2822,7 @@ try{
     applyMuscles(ex.muscles || {}, "mainBodyFrontMount");
     applyMuscles(ex.muscles || {}, "mainBodyBackMount");
     document.getElementById("bodyMuscles").innerHTML = musclesCaptionHTML(ex.muscles, "Sin músculos asignados. Editá el ejercicio para marcarlos.");
+    syncNameDone();
   }
 
   // ---------- Exercise editor modal ----------
@@ -4240,7 +4308,14 @@ try{
       b.classList.toggle("done", nowDone);
       if(nowDone !== wasDone) playAnim(b, nowDone ? "a-pop-on" : "a-pop-off");
     });
+    syncNameDone();
     positionDoneDropdown();
+  }
+
+  // El nombre del ejercicio activo va en el color del grupo si está hecho.
+  function syncNameDone(){
+    document.getElementById("bodyExName")
+      .classList.toggle("is-done", !!activeExerciseId && isDone(activeExerciseId));
   }
 
   // Acota la lista al espacio realmente visible: si hay lugar abajo del botón
@@ -4530,6 +4605,161 @@ try{
       if(scrollTimer) clearTimeout(scrollTimer);
       scrollTimer = setTimeout(function(){ velX = 0; settle(); }, 150);
     });
+  })();
+
+  // Deslizar el ejercicio activo: arriba = hecho, abajo = no hecho. Vale sobre
+  // la tarjeta del ejercicio (nombre + cuerpos) y sobre la parte de la tarjeta
+  // de ruedas que no es una rueda (las ruedas ya usan el arrastre vertical
+  // para cambiar el valor, y los botones/el desplegable "Hechos" son suyos).
+  // Un gesto solo cuenta si es claramente vertical (mismo criterio de
+  // reconocimiento que el carrusel, así que nunca compite con el swipe
+  // horizontal). Deslizar hacia el lado que no cambia nada (arriba en uno ya
+  // hecho, abajo en uno pendiente) solo estira la tarjeta con resistencia.
+  var nameResetTimer = null;
+  function animateName(nowDone){
+    var ex = activeExercise();
+    if(!ex) return;
+    var box = document.getElementById("bodyExName");
+    var txt = document.getElementById("bodyExNameText");
+    clearTimeout(nameResetTimer);
+    box.classList.remove("just-done", "just-undone");
+    txt.textContent = "";
+    fillLetters(txt, ex.name);
+    void box.offsetWidth;
+    box.classList.add(nowDone ? "just-done" : "just-undone");
+    nameResetTimer = setTimeout(function(){
+      box.classList.remove("just-done", "just-undone");
+      var cur = activeExercise();
+      if(cur && txt.querySelector(".dd-ch")) txt.textContent = cur.name;
+    }, 700 + ex.name.length * 28);
+  }
+
+  (function setupDoneSwipe(){
+    var card = document.querySelector("#trainView .body-card");
+    var carousel = document.getElementById("exCarousel");
+    var LOCK_PX = 6;      // igual que el carrusel: recién ahí se decide si el gesto es vertical
+    var SWIPE_PX = 56;    // recorrido para que cuente
+    var FLICK_V = 0.55;   // px/ms — un toque corto pero rápido también cuenta
+    var FLICK_MIN_PX = 20;
+    var MAX_PULL = 18;    // cuánto sigue la tarjeta al dedo
+    var ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    var g = null;
+
+    function pageScrolls(){
+      return document.documentElement.scrollHeight > window.innerHeight + 2;
+    }
+
+    function removeBadge(){
+      if(g && g.badge){ g.badge.remove(); g.badge = null; g.badgeKind = null; }
+    }
+
+    // el círculo indicador: tilde si el gesto marcaría, X si desmarcaría;
+    // sin círculo si el gesto no cambiaría nada
+    function setBadge(kind, progress){
+      if(g.badgeKind !== kind){
+        removeBadge();
+        if(kind){
+          var b = document.createElement("div");
+          b.className = "swipe-badge" + (kind === "undo" ? " undo" : "");
+          b.innerHTML = kind === "undo" ? ICON_X : ICON_CHECK;
+          card.appendChild(b);
+          g.badge = b;
+        }
+        g.badgeKind = kind;
+      }
+      if(g.badge){
+        var dir = kind === "undo" ? 1 : -1; // el círculo "viene" desde donde va el dedo
+        g.badge.style.opacity = progress.toFixed(3);
+        g.badge.style.transform = "translateY(" + (-dir * (1 - progress) * 16).toFixed(1) + "px) scale(" + (0.5 + 0.5 * progress).toFixed(3) + ")";
+      }
+    }
+
+    function springBack(){
+      card.style.transition = "transform .24s cubic-bezier(.3,1.5,.5,1)";
+      card.style.transform = "";
+      setTimeout(function(){ card.style.transition = ""; }, 280);
+    }
+
+    function finish(committed, wantDone){
+      var badge = g.badge, exId = g.exId;
+      g.badge = null;
+      springBack();
+      if(!committed){
+        if(badge) badge.remove();
+        return;
+      }
+      if(badge){
+        badge.style.opacity = ""; badge.style.transform = "";
+        badge.classList.add(wantDone ? "fly-up" : "fly-down");
+        var rm = function(){ badge.remove(); };
+        badge.addEventListener("animationend", rm);
+        setTimeout(rm, 1000);
+      }
+      if(navigator.vibrate) navigator.vibrate(wantDone ? 14 : 8);
+
+      justDoneId = wantDone ? exId : null;
+      justUndoneId = wantDone ? null : exId;
+      setDone(exId, wantDone);
+      renderDoneDropdown();
+      animateName(wantDone);
+      playAnim(card, wantDone ? "a-card-done" : "a-card-undone");
+    }
+
+    function attach(el, skipSel, pageOnly){
+      el.addEventListener("touchstart", function(ev){
+        g = null;
+        if(ev.touches.length !== 1 || !activeExerciseId) return;
+        if(ev.target.closest && ev.target.closest(skipSel)) return;
+        if(pageOnly){
+          // solo la página del ejercicio activo, no un vecino que asoma
+          var pg = ev.target.closest && ev.target.closest(".ex-page");
+          if(!pg || pg.dataset.exId !== activeExerciseId) return;
+        }
+        var t = ev.touches[0];
+        g = { el:el, x:t.clientX, y:t.clientY, lastY:t.clientY, lastT:performance.now(),
+              v:0, dy:0, locked:false, badge:null, badgeKind:null, exId:activeExerciseId };
+      }, { passive:true });
+
+      el.addEventListener("touchmove", function(ev){
+        if(!g || g.el !== el) return;
+        var t = ev.touches[0];
+        var dx = t.clientX - g.x, dy = t.clientY - g.y;
+        if(!g.locked){
+          if(Math.abs(dx) < LOCK_PX && Math.abs(dy) < LOCK_PX) return;
+          if(Math.abs(dy) <= Math.abs(dx) || carousel.querySelector(".ex-page.reordering")){ g = null; return; }
+          g.locked = true;
+        }
+        // si la página no scrollea no hay nada que el navegador pueda hacer con
+        // este gesto (salvo el "tirar para refrescar"): lo tomamos nosotros
+        if(ev.cancelable && !pageScrolls()) ev.preventDefault();
+        var now = performance.now();
+        if(now > g.lastT) g.v = (t.clientY - g.lastY) / (now - g.lastT);
+        g.lastY = t.clientY; g.lastT = now; g.dy = dy;
+
+        var toDone = dy < 0;
+        var changes = toDone !== isDone(g.exId);
+        var pull = Math.max(-MAX_PULL, Math.min(MAX_PULL, dy * (changes ? 0.45 : 0.15)));
+        card.style.transition = "none";
+        card.style.transform = "translateY(" + pull.toFixed(1) + "px)";
+        setBadge(changes ? (toDone ? "done" : "undo") : null, Math.min(1, Math.abs(dy) / SWIPE_PX));
+      }, { passive:false });
+
+      function end(cancelled){
+        if(!g || g.el !== el) return;
+        if(!g.locked){ g = null; return; }
+        var dy = g.dy, absDy = Math.abs(dy);
+        var toDone = absDy >= SWIPE_PX ? dy < 0 : g.v < 0;
+        var fast = Math.abs(g.v) > FLICK_V && absDy >= FLICK_MIN_PX && (g.v < 0) === (dy < 0);
+        var committed = !cancelled && (absDy >= SWIPE_PX || fast) && toDone !== isDone(g.exId);
+        finish(committed, toDone);
+        g = null;
+      }
+      el.addEventListener("touchend", function(){ end(false); }, { passive:true });
+      el.addEventListener("touchcancel", function(){ end(true); }, { passive:true });
+    }
+
+    attach(card, ".icon-btn, .done-dd", false);
+    attach(carousel, ".icon-btn, .wheel", true);
   })();
 
   document.getElementById("addExBtn").addEventListener("click", function(){
