@@ -1425,9 +1425,22 @@
   .compare-delta.down{ background:color-mix(in srgb, var(--danger) 20%, transparent); color:var(--danger); }
   .compare-delta.flat{ background:var(--bg-elev-2); color:var(--text-dim); }
   .compare-chart{ display:block; width:100%; height:auto; margin-bottom:6px; }
-  .compare-chart .line{ fill:none; stroke:var(--current-group-color, var(--accent)); stroke-width:2; }
-  .compare-chart .dot{ fill:var(--current-group-color, var(--accent)); }
-  .compare-chart .val{ fill:var(--text); font-size:9px; font-weight:700; }
+  /* Colores de las 3 métricas: el peso toma el color del grupo muscular; series y
+     reps son fijos (azul y violeta) y nunca coinciden con ningún --group-*. */
+  :root{ --cmp-peso:var(--current-group-color, var(--accent)); --cmp-series:#1e66f5; --cmp-reps:#8839ef; }
+  :root[data-theme="dark"]{ --cmp-series:#89b4fa; --cmp-reps:#cba6f7; }
+  .compare-chart .line{ fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+  .compare-chart .line.m-peso{ stroke:var(--cmp-peso); }
+  .compare-chart .line.m-series{ stroke:var(--cmp-series); }
+  .compare-chart .line.m-reps{ stroke:var(--cmp-reps); }
+  .compare-chart .dot{ stroke:none; }
+  .compare-chart .dot.m-peso{ fill:var(--cmp-peso); }
+  .compare-chart .dot.m-series{ fill:var(--cmp-series); }
+  .compare-chart .dot.m-reps{ fill:var(--cmp-reps); }
+  .compare-chart .val{ font-size:9px; font-weight:700; }
+  .compare-chart .val.m-peso{ fill:var(--cmp-peso); }
+  .compare-chart .val.m-series{ fill:var(--cmp-series); }
+  .compare-chart .val.m-reps{ fill:var(--cmp-reps); }
   .compare-chart .lbl{ fill:var(--text-dim); font-size:8px; }
   .compare-rows{ display:flex; flex-wrap:wrap; gap:6px; }
   .compare-row-chip{
@@ -1445,8 +1458,38 @@
   .compare-summary{
     font-size:13px;
     color:var(--text-dim);
-    margin-bottom:14px;
+    margin-bottom:10px;
   }
+  .compare-summary:empty{ display:none; }
+  /* La pantalla de comparativa ocupa exactamente lo que queda de pantalla
+     (fitCompareView() le fija el alto): lo de arriba (volver, interruptores,
+     resumen) queda fijo y solo scrollea la lista de ejercicios. */
+  #compareView:not(.hidden){ display:flex; flex-direction:column; overflow:hidden; }
+  .compare-top{ flex:0 0 auto; }
+  #compareContent{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+  .compare-toggles{ display:flex; gap:6px; }
+  .cmp-toggle{
+    display:flex; align-items:center; gap:5px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--bg-elev);
+    color:var(--text-dim);
+    font-family:inherit; font-size:12px; font-weight:700;
+    cursor:pointer;
+  }
+  .cmp-toggle .cmp-dot{ width:9px; height:9px; border-radius:50%; background:var(--text-dim); opacity:.45; }
+  .cmp-toggle[aria-pressed="true"]{ color:var(--text); background:var(--bg-elev-2); }
+  .cmp-toggle[aria-pressed="true"] .cmp-dot{ opacity:1; }
+  .cmp-toggle[data-metric="peso"][aria-pressed="true"] .cmp-dot{ background:var(--cmp-peso); }
+  .cmp-toggle[data-metric="series"][aria-pressed="true"] .cmp-dot{ background:var(--cmp-series); }
+  .cmp-toggle[data-metric="reps"][aria-pressed="true"] .cmp-dot{ background:var(--cmp-reps); }
+  .compare-deltas{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; }
+  .compare-card-head{ flex-wrap:wrap; }
+  .compare-delta .cmp-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; vertical-align:1px; }
+  .compare-row-chip .w.m-series{ color:var(--cmp-series); }
+  .compare-row-chip .w.m-reps{ color:var(--cmp-reps); }
+  .compare-row-chip .w.m-peso{ color:var(--cmp-peso); }
   .hidden{ display:none !important; }
   .toast{
     position:fixed;
@@ -1786,8 +1829,16 @@ try{
 </div>
 
 <main id="compareView" class="hidden">
-  <div class="back-row">
-    <button class="back-btn" id="compareBackBtn">‹ Historial</button>
+  <div class="compare-top">
+    <div class="back-row">
+      <button class="back-btn" id="compareBackBtn">‹ Historial</button>
+      <div class="compare-toggles" id="compareToggles" role="group" aria-label="Qué comparar">
+        <button type="button" class="cmp-toggle" data-metric="peso" aria-pressed="true"><span class="cmp-dot"></span>Peso</button>
+        <button type="button" class="cmp-toggle" data-metric="series" aria-pressed="true"><span class="cmp-dot"></span>Series</button>
+        <button type="button" class="cmp-toggle" data-metric="reps" aria-pressed="true"><span class="cmp-dot"></span>Reps</button>
+      </div>
+    </div>
+    <div class="compare-summary" id="compareSummary"></div>
   </div>
   <div id="compareContent"></div>
 </main>
@@ -2045,7 +2096,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.25.0";
+  var APP_VERSION = "1.26.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2254,6 +2305,10 @@ try{
     "1.25.0": [
       "Comparar: ahora los registros importados se pueden comparar con los originales. Una versión importada de un grupo muscular (ej. \"Piernas (Importado)\") cuenta como el mismo grupo que \"Piernas\", y un día propio importado (\"Push (importado)\") como el mismo día que \"Push\". Si la comparativa mezcla versiones, cada registro lleva una etiqueta (Original / Importado) y la gráfica sigue por nombre de ejercicio.",
       "En el Historial, los registros de una versión importada ahora usan el color de su grupo muscular en vez del color genérico."
+    ],
+    "1.26.0": [
+      "Comparativa: ahora el gráfico tiene 3 líneas de distinto color — peso, series y repeticiones — y arriba a la derecha hay tres interruptores para activar o desactivar cada una (incluso el peso). Cada línea usa su propia escala, así que se ve cómo evoluciona cada cosa; los números exactos están en las etiquetas y en las fichas de abajo.",
+      "En la comparativa, lo de arriba (volver, interruptores y resumen) queda fijo y solo se scrollea la lista de ejercicios."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -5071,77 +5126,173 @@ try{
     return names;
   }
 
-  // Mini gráfico de línea (SVG inline, sin librerías) con el peso de un
-  // ejercicio a lo largo de los registros elegidos. Solo se llama con >=2
-  // puntos numéricos (ver renderCompareView).
-  function buildCompareChart(points){
-    var W = 280, H = 90, padX = 22, padY = 18;
-    var weights = points.map(function(p){ return p.weight; });
-    var min = Math.min.apply(null, weights);
-    var max = Math.max.apply(null, weights);
-    if(min === max){ min -= 1; max += 1; } // evita división por cero si el peso no cambió
+  // Qué métricas se dibujan/comparan (interruptores de arriba a la derecha).
+  // Se recuerda entre sesiones, pero es solo una comodidad: si no hay
+  // localStorage arranca con las tres activas.
+  var COMPARE_METRICS_KEY = "gymCompareMetrics_v1";
+  var COMPARE_METRIC_ORDER = ["peso", "series", "reps"];
+  var compareMetrics = (function(){
+    var m = { peso:true, series:true, reps:true };
+    try{
+      var saved = JSON.parse(localStorage.getItem(COMPARE_METRICS_KEY) || "null");
+      if(saved && typeof saved === "object"){
+        COMPARE_METRIC_ORDER.forEach(function(k){ if(typeof saved[k] === "boolean") m[k] = saved[k]; });
+      }
+    }catch(e){}
+    if(!m.peso && !m.series && !m.reps) m.peso = m.series = m.reps = true;
+    return m;
+  })();
+
+  function syncCompareToggles(){
+    document.querySelectorAll("#compareToggles .cmp-toggle").forEach(function(btn){
+      btn.setAttribute("aria-pressed", compareMetrics[btn.dataset.metric] ? "true" : "false");
+    });
+  }
+
+  document.getElementById("compareToggles").addEventListener("click", function(ev){
+    var btn = ev.target.closest && ev.target.closest(".cmp-toggle");
+    if(!btn) return;
+    var k = btn.dataset.metric;
+    var othersOn = COMPARE_METRIC_ORDER.some(function(x){ return x !== k && compareMetrics[x]; });
+    if(compareMetrics[k] && !othersOn){ showToast("Dejá al menos una activa"); return; }
+    compareMetrics[k] = !compareMetrics[k];
+    try{ localStorage.setItem(COMPARE_METRICS_KEY, JSON.stringify(compareMetrics)); }catch(e){}
+    var content = document.getElementById("compareContent");
+    var keep = content.scrollTop;
+    renderCompareView();
+    content.scrollTop = keep;
+  });
+
+  var COMPARE_METRIC_UNIT = { peso:" kg", series:" series", reps:" reps" };
+
+  // Que la pantalla ocupe exactamente el alto que queda debajo del header:
+  // así lo de arriba queda fijo y solo scrollea #compareContent.
+  function fitCompareView(){
+    if(currentView !== "compare") return;
+    var v = document.getElementById("compareView");
+    window.scrollTo(0, 0);
+    var top = v.getBoundingClientRect().top;
+    var padB = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    v.style.height = Math.max(200, window.innerHeight - top - padB) + "px";
+  }
+  window.addEventListener("resize", fitCompareView);
+  window.addEventListener("orientationchange", fitCompareView);
+
+  // Gráfico de líneas (SVG inline, sin librerías): una línea por métrica
+  // activa (peso, series, reps), cada una con su propia escala vertical —
+  // series y reps no tienen el mismo rango que los kilos, así que lo que se
+  // compara es la forma de la evolución; los números exactos van en las
+  // etiquetas y en las fichas de abajo. points[i] = {date, peso, series, reps}
+  // (peso puede ser null en registros viejos con "intensidad").
+  function buildCompareChart(points, metrics){
+    var W = 280, H = 110, padX = 22, padY = 18;
     var n = points.length;
     function px(i){ return n === 1 ? W / 2 : padX + (i / (n - 1)) * (W - padX * 2); }
-    function py(w){ return (H - padY) - ((w - min) / (max - min)) * (H - padY * 2 - 10); }
 
     var svgns = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(svgns, "svg");
     svg.setAttribute("class", "compare-chart");
     svg.setAttribute("viewBox", "0 0 " + W + " " + H);
 
-    var pathD = points.map(function(p, i){
-      return (i === 0 ? "M" : "L") + px(i).toFixed(1) + "," + py(p.weight).toFixed(1);
-    }).join(" ");
-    var path = document.createElementNS(svgns, "path");
-    path.setAttribute("class", "line");
-    path.setAttribute("d", pathD);
-    svg.appendChild(path);
+    // posición de cada punto por métrica
+    var drawn = {};
+    metrics.forEach(function(m){
+      var idxs = [];
+      points.forEach(function(p, i){ if(typeof p[m] === "number") idxs.push(i); });
+      if(!idxs.length) return;
+      var vals = idxs.map(function(i){ return points[i][m]; });
+      var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+      // Si el valor no cambió en ningún registro la línea sería plana y caería
+      // exactamente donde caen las otras líneas planas: se la corre un poco
+      // según la métrica para que no se tapen entre sí.
+      var flat = (min === max);
+      var flatShift = { peso:0, series:-14, reps:14 }[m] || 0;
+      if(flat){ min -= 1; max += 1; } // evita división por cero
+      function py(v){
+        var y = (H - padY) - ((v - min) / (max - min)) * (H - padY * 2 - 10);
+        return flat ? y + flatShift : y;
+      }
+      drawn[m] = idxs.map(function(i){ return { i:i, x:px(i), y:py(points[i][m]), v:points[i][m] }; });
 
-    points.forEach(function(p, i){
-      var cx = px(i), cy = py(p.weight);
-      var dot = document.createElementNS(svgns, "circle");
-      dot.setAttribute("class", "dot");
-      dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("r", 3);
-      svg.appendChild(dot);
-
-      var val = document.createElementNS(svgns, "text");
-      val.setAttribute("class", "val");
-      val.setAttribute("x", cx); val.setAttribute("y", Math.max(9, cy - 7));
-      val.setAttribute("text-anchor", "middle");
-      val.textContent = p.weight;
-      svg.appendChild(val);
-
-      var lbl = document.createElementNS(svgns, "text");
-      lbl.setAttribute("class", "lbl");
-      lbl.setAttribute("x", cx); lbl.setAttribute("y", H - 3);
-      lbl.setAttribute("text-anchor", "middle");
-      lbl.textContent = fmtDateShort(p.date);
-      svg.appendChild(lbl);
+      if(drawn[m].length > 1){
+        var path = document.createElementNS(svgns, "path");
+        path.setAttribute("class", "line m-" + m);
+        path.setAttribute("d", drawn[m].map(function(p, k){
+          return (k === 0 ? "M" : "L") + p.x.toFixed(1) + "," + p.y.toFixed(1);
+        }).join(" "));
+        svg.appendChild(path);
+      }
+      drawn[m].forEach(function(p){
+        var dot = document.createElementNS(svgns, "circle");
+        dot.setAttribute("class", "dot m-" + m);
+        dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y); dot.setAttribute("r", 3);
+        svg.appendChild(dot);
+      });
     });
 
+    // etiquetas de valor: si varias métricas caen en el mismo punto se
+    // separan hacia abajo para que no se encimen
+    for(var i = 0; i < n; i++){
+      var labels = [];
+      metrics.forEach(function(m){
+        (drawn[m] || []).forEach(function(p){ if(p.i === i) labels.push({ m:m, v:p.v, dotY:p.y }); });
+      });
+      // cada etiqueta va arriba de su punto; si choca con otra de la misma
+      // columna prueba abajo del punto, y después más lejos
+      labels.sort(function(a, b){ return a.dotY - b.dotY; });
+      var placed = [];
+      labels.forEach(function(l){
+        var chosen = null;
+        [-7, 13, -17, 23, -27].some(function(off){
+          var y = l.dotY + off;
+          if(y < 9 || y > H - 14) return false;
+          if(placed.some(function(py2){ return Math.abs(py2 - y) < 10; })) return false;
+          chosen = y; return true;
+        });
+        l.y = chosen === null ? Math.max(9, Math.min(H - 14, l.dotY - 7)) : chosen;
+        placed.push(l.y);
+      });
+      labels.forEach(function(l){
+        var val = document.createElementNS(svgns, "text");
+        val.setAttribute("class", "val m-" + l.m);
+        val.setAttribute("x", px(i)); val.setAttribute("y", l.y);
+        val.setAttribute("text-anchor", "middle");
+        val.textContent = l.v;
+        svg.appendChild(val);
+      });
+      var lbl = document.createElementNS(svgns, "text");
+      lbl.setAttribute("class", "lbl");
+      lbl.setAttribute("x", px(i)); lbl.setAttribute("y", H - 3);
+      lbl.setAttribute("text-anchor", "middle");
+      lbl.textContent = fmtDateShort(points[i].date);
+      svg.appendChild(lbl);
+    }
     return svg;
   }
 
   function renderCompareView(){
     applyGroupColor(compareLogs.length ? compareLogs[0].dayId : null);
+    syncCompareToggles();
+    var summaryEl = document.getElementById("compareSummary");
     var wrap = document.getElementById("compareContent");
     wrap.innerHTML = "";
+    summaryEl.textContent = "";
     if(compareLogs.length < 2){
       var empty = document.createElement("div");
       empty.className = "empty";
       empty.textContent = "Elegí al menos 2 registros para comparar.";
       wrap.appendChild(empty);
+      fitCompareView();
       return;
     }
 
     var versionTags = compareLogs.map(compareVersionTag);
     var mixedVersions = versionTags.some(function(t){ return t !== versionTags[0]; });
-    var summary = document.createElement("div");
-    summary.className = "compare-summary";
-    summary.textContent = "Comparando " + compareLogs.length + " registros de " +
+    summaryEl.textContent = "Comparando " + compareLogs.length + " registros de " +
       (mixedVersions ? compareFamilyLabel(compareLogs[0]) + " (original e importados)" : compareLogs[0].dayLabel) +
       ": " + fmtDate(compareLogs[0].date) + " → " + fmtDate(compareLogs[compareLogs.length - 1].date);
-    wrap.appendChild(summary);
+
+    var active = COMPARE_METRIC_ORDER.filter(function(m){ return compareMetrics[m]; });
 
     collectCompareExerciseNames(compareLogs).forEach(function(name){
       var points = [];
@@ -5154,7 +5305,7 @@ try{
           date: log.date,
           series: e.series,
           reps: e.reps,
-          weight: hasWeight ? e.weight : null,
+          peso: hasWeight ? e.weight : null,
           legacyLabel: hasWeight ? null : (LEGACY_INTENSITY_LABEL[e.intensity] || "")
         });
       });
@@ -5163,26 +5314,32 @@ try{
       var card = document.createElement("div");
       card.className = "compare-card";
 
-      var numeric = points.filter(function(p){ return p.weight !== null; });
-      var deltaHTML = "";
-      if(numeric.length >= 2){
-        var diff = numeric[numeric.length - 1].weight - numeric[0].weight;
+      // variación primero→último de cada métrica activa con >=2 datos
+      var deltasHTML = "";
+      active.forEach(function(m){
+        var nums = points.filter(function(p){ return typeof p[m] === "number"; });
+        if(nums.length < 2) return;
+        var diff = Math.round((nums[nums.length - 1][m] - nums[0][m]) * 100) / 100;
         var cls = diff > 0 ? "up" : (diff < 0 ? "down" : "flat");
-        var sign = diff > 0 ? "+" : "";
-        deltaHTML = '<div class="compare-delta ' + cls + '">' + sign + diff + " kg</div>";
-      }
+        deltasHTML += '<div class="compare-delta ' + cls + '"><span class="cmp-dot" style="background:var(--cmp-' + m + ')"></span>' +
+          (diff > 0 ? "+" : "") + diff + COMPARE_METRIC_UNIT[m] + '</div>';
+      });
 
       var head = document.createElement("div");
       head.className = "compare-card-head";
-      head.innerHTML = '<div class="compare-ex-name">' + name + '</div>' + deltaHTML;
+      head.innerHTML = '<div class="compare-ex-name">' + name + '</div>' +
+        (deltasHTML ? '<div class="compare-deltas">' + deltasHTML + '</div>' : "");
       card.appendChild(head);
 
-      if(numeric.length >= 2){
-        card.appendChild(buildCompareChart(numeric));
+      var plottable = active.some(function(m){
+        return points.filter(function(p){ return typeof p[m] === "number"; }).length >= 2;
+      });
+      if(plottable){
+        card.appendChild(buildCompareChart(points, active));
       } else if(points.length > 1){
         var note = document.createElement("div");
         note.className = "compare-note";
-        note.textContent = "No hay suficientes registros con peso cargado para graficar la evolución.";
+        note.textContent = "No hay suficientes registros con datos para graficar la evolución.";
         card.appendChild(note);
       }
 
@@ -5191,15 +5348,26 @@ try{
       points.forEach(function(p){
         var chip = document.createElement("div");
         chip.className = "compare-row-chip";
-        var wLabel = p.weight !== null ? (p.weight + " kg") : (p.legacyLabel || "—");
-        chip.innerHTML = '<div class="d">' + fmtDateShort(p.date) + '</div><div class="w">' + wLabel + '</div><div class="d">' + p.series + '×' + p.reps + '</div>' +
-          (p.tag ? '<div class="d tag">' + p.tag + '</div>' : '');
+        var parts = '<div class="d">' + fmtDateShort(p.date) + '</div>';
+        if(compareMetrics.peso){
+          parts += '<div class="w m-peso">' + (p.peso !== null ? (p.peso + " kg") : (p.legacyLabel || "—")) + '</div>';
+        }
+        if(compareMetrics.series && compareMetrics.reps){
+          parts += '<div class="d"><span class="w m-series">' + p.series + '</span>×<span class="w m-reps">' + p.reps + '</span></div>';
+        } else if(compareMetrics.series){
+          parts += '<div class="w m-series">' + p.series + ' series</div>';
+        } else if(compareMetrics.reps){
+          parts += '<div class="w m-reps">' + p.reps + ' reps</div>';
+        }
+        if(p.tag) parts += '<div class="d tag">' + p.tag + '</div>';
+        chip.innerHTML = parts;
         rows.appendChild(chip);
       });
       card.appendChild(rows);
 
       wrap.appendChild(card);
     });
+    fitCompareView();
   }
 
   // ---------- Nav ----------
