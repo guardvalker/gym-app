@@ -2044,7 +2044,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.23.1";
+  var APP_VERSION = "1.23.2";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2239,6 +2239,10 @@ try{
     ],
     "1.23.1": [
       "Cada app de BONA ahora guarda su propia sesión (antes compartían una sola). Vas a tener que iniciar sesión una vez más; usá el mismo email de siempre y tus datos están como los dejaste."
+    ],
+    "1.23.2": [
+      "La sincronización ahora te avisa en pantalla cuando falla, en vez de fallar en silencio.",
+      "Protección extra: un dispositivo con el historial vacío ya no puede pisar los registros que tenés guardados en la nube; en ese caso los descarga."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -5524,6 +5528,7 @@ try{
     showView();
   }
 
+  var syncErrorToastShown = false;
   if(window.Sync && window.Sync.isConfigured()){
     document.getElementById("accountBtn").classList.remove("hidden");
     window.Sync.init({
@@ -5538,6 +5543,13 @@ try{
         document.getElementById("accountSyncStatusText").textContent = "Sincronizado";
       },
       onSyncError: function(msg){
+        // Aviso visible (una sola vez por sesión, y no para cortes de red, que
+        // se reintentan solos al volver la conexión): antes el error solo se
+        // veía abriendo Ajustes, y un fallo permanente pasaba inadvertido.
+        if(!syncErrorToastShown && !/fetch|network|offline/i.test(msg)){
+          syncErrorToastShown = true;
+          showToast("No se pudo sincronizar con la nube — revisá Ajustes");
+        }
         document.getElementById("accountSyncStatus").className = "sync-status err";
         document.getElementById("accountSyncStatusText").textContent = "Error de sincronización";
         if(!document.getElementById("accountOverlay").classList.contains("hidden")) accountMsg(msg, false);

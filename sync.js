@@ -131,6 +131,20 @@ window.Sync = (function () {
   async function doPush(payload) {
     if (JSON.stringify(payload) === JSON.stringify(lastSyncedPayload)) return;
     try {
+      // Guard anti-pisado: un dispositivo con el historial vacío (datos
+      // locales borrados, instalación nueva) nunca debe reemplazar una copia
+      // en la nube que sí tiene registros. Solo se chequea cuando todavía no
+      // sabemos qué hay en la nube (lastSyncedPayload nulo) y lo que subimos
+      // no tiene registros — es el único caso donde se podría perder historial.
+      const sinRegistros = !payload || !Array.isArray(payload.logs) || payload.logs.length === 0;
+      if (sinRegistros && !lastSyncedPayload) {
+        const remoto = await fetchRemote();
+        if (remoto && Array.isArray(remoto.logs) && remoto.logs.length > 0) {
+          lastSyncedPayload = clone(remoto);
+          cb.onRemoteData && cb.onRemoteData(remoto);
+          return;
+        }
+      }
       const { error } = await sb
         .from('gy_data')
         .upsert({ usuario_id: currentUser.id, payload, updated_at: new Date().toISOString() });
