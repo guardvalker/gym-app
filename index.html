@@ -497,8 +497,14 @@
     background:color-mix(in srgb, var(--text-dim) 7%, transparent);
     transition:background .35s ease;
   }
-  .day-battery-seg.on{ background:color-mix(in srgb, var(--accent) 34%, transparent); }
-  .day-battery.full .day-battery-seg.on{ background:color-mix(in srgb, var(--accent) 48%, transparent); }
+  /* El color sale de --batt-color (los grupos musculares fijos ponen el suyo,
+     ver renderGroupsView); sin eso, el acento de la app, como en "Por días". */
+  .day-battery-seg.on{ background:color-mix(in srgb, var(--batt-color, var(--accent)) 34%, transparent); }
+  .day-battery.full .day-battery-seg.on{ background:color-mix(in srgb, var(--batt-color, var(--accent)) 48%, transparent); }
+  /* Tarjeta de grupo muscular con batería: el contenido va por encima. */
+  .group-card.has-battery{ position:relative; overflow:hidden; }
+  .group-card.has-battery > .group-card-icon,
+  .group-card.has-battery > .group-card-body{ position:relative; z-index:1; }
   .custom-day-nav{ position:relative; z-index:1; }
   .custom-day-card .custom-day-edit{ z-index:2; }
   /* Doble clase (.custom-day-card .custom-day-edit) a propósito: necesita
@@ -1042,12 +1048,12 @@
   .day-battery-seg.drain{ animation:aSegDrain .5s ease-out both; }
   @keyframes aSegCharge{
     0%{ background:color-mix(in srgb, var(--text-dim) 7%, transparent); transform:scale(.9,.5); transform-origin:bottom; }
-    55%{ background:color-mix(in srgb, var(--accent) 66%, transparent); transform:scale(1.02,1.05); transform-origin:bottom; }
+    55%{ background:color-mix(in srgb, var(--batt-color, var(--accent)) 66%, transparent); transform:scale(1.02,1.05); transform-origin:bottom; }
     100%{ transform:scale(1); transform-origin:bottom; }
   }
   @keyframes aSegDrain{
-    0%{ background:color-mix(in srgb, var(--accent) 34%, transparent); transform:scale(1); }
-    40%{ background:color-mix(in srgb, var(--accent) 12%, transparent); transform:scale(.94,.8); }
+    0%{ background:color-mix(in srgb, var(--batt-color, var(--accent)) 34%, transparent); transform:scale(1); }
+    40%{ background:color-mix(in srgb, var(--batt-color, var(--accent)) 12%, transparent); transform:scale(.94,.8); }
     100%{ transform:scale(1); }
   }
   .day-battery.just-full::after{
@@ -2096,7 +2102,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.26.0";
+  var APP_VERSION = "1.26.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2309,6 +2315,9 @@ try{
     "1.26.0": [
       "Comparativa: ahora el gráfico tiene 3 líneas de distinto color — peso, series y repeticiones — y arriba a la derecha hay tres interruptores para activar o desactivar cada una (incluso el peso). Cada línea usa su propia escala, así que se ve cómo evoluciona cada cosa; los números exactos están en las etiquetas y en las fichas de abajo.",
       "En la comparativa, lo de arriba (volver, interruptores y resumen) queda fijo y solo se scrollea la lista de ejercicios."
+    ],
+    "1.26.1": [
+      "Las tarjetas de los grupos musculares ahora también muestran el progreso de los ejercicios hechos: el fondo se va llenando de abajo hacia arriba, con el color de cada grupo, igual que en \"Por días\"."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3581,6 +3590,14 @@ try{
       card.className = "group-card" + (isOddLast ? " full" : "");
       card.addEventListener("click", function(){ goToDay(d.id); });
 
+      // batería de progreso detrás del contenido, en el color del grupo
+      var battery = buildDayBattery(d.id);
+      if(battery){
+        card.classList.add("has-battery");
+        card.style.setProperty("--batt-color", groupColorCss(d.id));
+        card.appendChild(battery);
+      }
+
       var iconWrap = document.createElement("div");
       iconWrap.className = "group-card-icon";
       var icon = buildGroupIcon(d);
@@ -3664,6 +3681,38 @@ try{
 
   var batteryShown = {}; // dayId -> cuántos tramos llenos se mostraron la última vez
 
+  // "Batería" de progreso de un día/grupo: un tramo por ejercicio, llenos los
+  // marcados como hechos (solo ids que siguen existiendo en el día, por si se
+  // borró alguno). Compartida por las tarjetas de "Por días" y las de grupos
+  // musculares. Devuelve null si el día no tiene ejercicios.
+  function buildDayBattery(dayId){
+    var exs = data.templates[dayId] || [];
+    if(!exs.length) return null;
+    var doneIds = doneMap[dayId] || [];
+    var doneCount = exs.filter(function(e){ return doneIds.indexOf(e.id) !== -1; }).length;
+    // vs. lo que mostró la última vez: los tramos que cambiaron se animan
+    // (se cargan / se vacían); la primera vez que se dibuja no anima nada.
+    var prevCount = batteryShown[dayId];
+    batteryShown[dayId] = doneCount;
+    var battery = document.createElement("div");
+    var full = doneCount === exs.length;
+    battery.className = "day-battery" + (full ? " full" : "") + (full && prevCount !== undefined && prevCount < doneCount ? " just-full" : "");
+    for(var i = 0; i < exs.length; i++){
+      var seg = document.createElement("div");
+      seg.className = "day-battery-seg" + (i < doneCount ? " on" : "");
+      if(prevCount !== undefined){
+        if(i >= prevCount && i < doneCount){
+          seg.classList.add("charge");
+          seg.style.setProperty("--d", ((i - prevCount) * 110) + "ms");
+        } else if(i >= doneCount && i < prevCount){
+          seg.classList.add("drain");
+        }
+      }
+      battery.appendChild(seg);
+    }
+    return battery;
+  }
+
   function renderCustomDaysView(){
     var wrap = document.getElementById("customDayCards");
     wrap.innerHTML = "";
@@ -3675,34 +3724,8 @@ try{
       var card = document.createElement("div");
       card.className = "group-card custom-day-card";
 
-      // segmentos = ejercicios del día; llenos = los marcados como hechos
-      // (solo ids que siguen existiendo en el día, por si se borró alguno)
-      var exs = data.templates[d.id] || [];
-      var doneIds = doneMap[d.id] || [];
-      var doneCount = exs.filter(function(e){ return doneIds.indexOf(e.id) !== -1; }).length;
-      // vs. lo que mostró la última vez: los tramos que cambiaron se animan
-      // (se cargan / se vacían); la primera vez que se dibuja no anima nada.
-      var prevCount = batteryShown[d.id];
-      batteryShown[d.id] = doneCount;
-      if(exs.length){
-        var battery = document.createElement("div");
-        var full = doneCount === exs.length;
-        battery.className = "day-battery" + (full ? " full" : "") + (full && prevCount !== undefined && prevCount < doneCount ? " just-full" : "");
-        for(var i = 0; i < exs.length; i++){
-          var seg = document.createElement("div");
-          seg.className = "day-battery-seg" + (i < doneCount ? " on" : "");
-          if(prevCount !== undefined){
-            if(i >= prevCount && i < doneCount){
-              seg.classList.add("charge");
-              seg.style.setProperty("--d", ((i - prevCount) * 110) + "ms");
-            } else if(i >= doneCount && i < prevCount){
-              seg.classList.add("drain");
-            }
-          }
-          battery.appendChild(seg);
-        }
-        card.appendChild(battery);
-      }
+      var battery = buildDayBattery(d.id);
+      if(battery) card.appendChild(battery);
 
       var nav = document.createElement("button");
       nav.type = "button";
