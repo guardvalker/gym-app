@@ -1978,7 +1978,7 @@ try{
       <div id="accountOtpStep" class="hidden" style="margin-top:14px;">
         <div class="field" style="margin-bottom:10px;">
           <label>Código recibido por email</label>
-          <input type="text" id="accountOtpInput" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="12">
+          <input type="text" id="accountOtpInput" placeholder="12345678" inputmode="numeric" autocomplete="one-time-code" maxlength="12">
         </div>
         <button class="btn-primary" id="accountVerifyOtpBtn" type="button" style="width:100%;">Confirmar código</button>
       </div>
@@ -2102,7 +2102,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.26.1";
+  var APP_VERSION = "1.26.2";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2318,6 +2318,9 @@ try{
     ],
     "1.26.1": [
       "Las tarjetas de los grupos musculares ahora también muestran el progreso de los ejercicios hechos: el fondo se va llenando de abajo hacia arriba, con el color de cada grupo, igual que en \"Por días\"."
+    ],
+    "1.26.2": [
+      "Fix: el ejemplo del campo de código al iniciar sesión mostraba 6 dígitos pero el código que llega por email es de 8. Ahora muestra 8, y si pegás el código con espacios también lo toma."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3370,7 +3373,7 @@ try{
 
   document.getElementById("accountVerifyOtpBtn").addEventListener("click", function(){
     var email = document.getElementById("accountEmailInput").value.trim();
-    var token = document.getElementById("accountOtpInput").value.trim();
+    var token = document.getElementById("accountOtpInput").value.replace(/\s+/g, "");
     if(!email || !token) return;
     var btn = document.getElementById("accountVerifyOtpBtn");
     btn.disabled = true;
