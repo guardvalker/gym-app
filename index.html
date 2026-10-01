@@ -1440,6 +1440,7 @@
   }
   .compare-row-chip .d{ color:var(--text-dim); font-size:10px; }
   .compare-row-chip .w{ font-weight:700; }
+  .compare-row-chip .tag{ font-weight:700; color:var(--current-group-color, var(--accent)); }
   .compare-note{ font-size:12px; color:var(--text-dim); }
   .compare-summary{
     font-size:13px;
@@ -1774,7 +1775,7 @@ try{
     <button id="importBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Importar</button>
     <button id="compareBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M11 18H8a2 2 0 0 1-2-2V9"></path></svg>Comparar</button>
   </div>
-  <div id="compareHint" class="compare-hint hidden">Elegí 2 o más registros del mismo grupo muscular para comparar.</div>
+  <div id="compareHint" class="compare-hint hidden">Elegí 2 o más registros del mismo grupo muscular o día para comparar (los importados cuentan como del mismo grupo).</div>
   <div id="historyList"></div>
 </main>
 
@@ -2044,7 +2045,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.24.1";
+  var APP_VERSION = "1.25.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2249,6 +2250,10 @@ try{
     ],
     "1.24.1": [
       "Fix: las ruedas de series, peso y repeticiones ya no se traban ni vuelven a un número anterior al deslizar. Había dos causas: la rueda se \"asentaba\" sola si frenabas un instante sin soltar el dedo, y la sincronización con la nube reaplicaba tus propios cambios (con valores de un instante antes) en medio del gesto."
+    ],
+    "1.25.0": [
+      "Comparar: ahora los registros importados se pueden comparar con los originales. Una versión importada de un grupo muscular (ej. \"Piernas (Importado)\") cuenta como el mismo grupo que \"Piernas\", y un día propio importado (\"Push (importado)\") como el mismo día que \"Push\". Si la comparativa mezcla versiones, cada registro lleva una etiqueta (Original / Importado) y la gráfica sigue por nombre de ejercicio.",
+      "En el Historial, los registros de una versión importada ahora usan el color de su grupo muscular en vez del color genérico."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -4843,6 +4848,50 @@ try{
     return parts[2] + "/" + parts[1] + "/" + parts[0];
   }
 
+  // "Familia" de comparación de un registro: lo que decide qué registros se
+  // pueden comparar entre sí. Antes se comparaba por dayId exacto, y una
+  // versión importada de un grupo (id "piernas_v_xxx") o un día propio
+  // importado (id nuevo) nunca coincidía con el original. Ahora:
+  //  - un grupo fijo y todas sus versiones importadas son la misma familia;
+  //  - un día propio es su nombre sin el sufijo "(importado)" / "(importado N)",
+  //    así "Push" y "Push (importado)" se comparan entre sí.
+  function stripImportedSuffix(label){
+    return String(label || "").replace(/\s*\(importado\)(\s*\d+)?\s*$/i, "").trim();
+  }
+  function compareGroupOf(dayId){
+    if(DAYS.some(function(d){ return d.id === dayId; })) return dayId;
+    var variant = (data.groupVariants || []).filter(function(v){ return v.id === dayId; })[0];
+    if(variant) return variant.groupId;
+    // versión importada cuya entrada ya se borró: el id conserva el grupo ("piernas_v_xxx")
+    var prefix = String(dayId).split("_v_")[0];
+    return DAYS.some(function(d){ return d.id === prefix; }) ? prefix : null;
+  }
+  function compareFamily(log){
+    var g = compareGroupOf(log.dayId);
+    if(g) return "g:" + g;
+    var custom = (data.customDays || []).filter(function(d){ return d.id === log.dayId; })[0];
+    return "c:" + stripImportedSuffix(custom ? custom.label : log.dayLabel).toLowerCase();
+  }
+  // Nombre de la versión de un registro, solo para distinguirlas dentro de
+  // una comparativa que mezcla varias (original vs importada).
+  function compareVersionTag(log){
+    var variant = (data.groupVariants || []).filter(function(v){ return v.id === log.dayId; })[0];
+    if(variant) return variant.label;
+    if(DAYS.some(function(d){ return d.id === log.dayId; })) return "Original";
+    if(/\(importado\)/i.test(log.dayLabel || "")) return "Importado";
+    var custom = (data.customDays || []).filter(function(d){ return d.id === log.dayId; })[0];
+    if(custom && /\(importado\)/i.test(custom.label)) return "Importado";
+    return "Original";
+  }
+  function compareFamilyLabel(log){
+    var g = compareGroupOf(log.dayId);
+    if(g){
+      var d = DAYS.filter(function(x){ return x.id === g; })[0];
+      return d ? (d.short || d.label) : log.dayLabel;
+    }
+    return stripImportedSuffix(log.dayLabel);
+  }
+
   function renderHistory(){
     var wrap = document.getElementById("historyList");
     wrap.innerHTML = "";
@@ -4866,11 +4915,12 @@ try{
       el.className = "log";
       el.dataset.logId = log.id;
       el.dataset.dayId = log.dayId;
+      el.dataset.family = compareFamily(log);
       // El color de esta tarjeta es siempre el de SU propio grupo muscular,
       // fijo acá adentro — nunca --current-group-color (esa es una variable
       // global que depende de qué pantalla se visitó antes, por eso "rotaba"
       // a un color que no correspondía a este registro).
-      el.style.setProperty("--log-group-color", groupColorCss(log.dayId));
+      el.style.setProperty("--log-group-color", groupColorCss(originGroupId(log.dayId)));
       if(compareMode) el.classList.add("compare-selectable");
 
       var head = document.createElement("div");
@@ -4936,14 +4986,14 @@ try{
   // se llamara renderHistory() en cada click, cada tarjeta se recrearía de
   // cero y no habría nada que animar.
   function applyCompareVisualState(){
-    var lockedDayId = null;
+    var lockedFamily = null;
     if(compareSelection.length > 0){
       var firstPicked = data.logs.filter(function(l){ return l.id === compareSelection[0]; })[0];
-      lockedDayId = firstPicked ? firstPicked.dayId : null;
+      lockedFamily = firstPicked ? compareFamily(firstPicked) : null;
     }
     document.querySelectorAll("#historyList .log").forEach(function(el){
       var selected = compareSelection.indexOf(el.dataset.logId) !== -1;
-      var hide = !!lockedDayId && el.dataset.dayId !== lockedDayId && !selected;
+      var hide = !!lockedFamily && el.dataset.family !== lockedFamily && !selected;
       if(selected !== el.classList.contains("compare-selected")){
         playAnim(el.querySelector(".log-select-mark"), selected ? "a-mark-in" : "a-mark-out");
       }
@@ -5083,9 +5133,12 @@ try{
       return;
     }
 
+    var versionTags = compareLogs.map(compareVersionTag);
+    var mixedVersions = versionTags.some(function(t){ return t !== versionTags[0]; });
     var summary = document.createElement("div");
     summary.className = "compare-summary";
-    summary.textContent = "Comparando " + compareLogs.length + " registros de " + compareLogs[0].dayLabel +
+    summary.textContent = "Comparando " + compareLogs.length + " registros de " +
+      (mixedVersions ? compareFamilyLabel(compareLogs[0]) + " (original e importados)" : compareLogs[0].dayLabel) +
       ": " + fmtDate(compareLogs[0].date) + " → " + fmtDate(compareLogs[compareLogs.length - 1].date);
     wrap.appendChild(summary);
 
@@ -5096,6 +5149,7 @@ try{
         if(!e) return;
         var hasWeight = e.weight !== undefined && e.weight !== null;
         points.push({
+          tag: mixedVersions ? compareVersionTag(log) : "",
           date: log.date,
           series: e.series,
           reps: e.reps,
@@ -5137,7 +5191,8 @@ try{
         var chip = document.createElement("div");
         chip.className = "compare-row-chip";
         var wLabel = p.weight !== null ? (p.weight + " kg") : (p.legacyLabel || "—");
-        chip.innerHTML = '<div class="d">' + fmtDateShort(p.date) + '</div><div class="w">' + wLabel + '</div><div class="d">' + p.series + '×' + p.reps + '</div>';
+        chip.innerHTML = '<div class="d">' + fmtDateShort(p.date) + '</div><div class="w">' + wLabel + '</div><div class="d">' + p.series + '×' + p.reps + '</div>' +
+          (p.tag ? '<div class="d tag">' + p.tag + '</div>' : '');
         rows.appendChild(chip);
       });
       card.appendChild(rows);
