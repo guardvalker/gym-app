@@ -89,11 +89,26 @@ window.Sync = (function () {
     return data ? data.payload : null;
   }
 
-  async function pullNow() {
+  // JSON de lo que está subiéndose ahora mismo (o ya subido): sirve para
+  // reconocer el "eco" de nuestro propio upsert vía realtime.
+  let lastPushedJson = null;
+
+  // force = true: pedido explícito del usuario (login, "Sincronizar ahora") —
+  // siempre aplica lo remoto. force = false: disparo de realtime — ahí se
+  // ignora el eco de nuestras propias escrituras y cualquier cambio local
+  // que todavía no se subió. Antes se aplicaba siempre: el eco de un push
+  // (con valores de hace unos cientos de ms) reemplazaba lo que el usuario
+  // ya había seguido cambiando y reconstruía las ruedas de series/reps/peso
+  // en un valor anterior, en pleno scroll.
+  async function pullRemote(force) {
     if (!sb || !currentUser) return;
     try {
       const payload = await fetchRemote();
       if (payload) {
+        if (!force) {
+          const json = JSON.stringify(payload);
+          if (pushTimer || json === lastPushedJson || json === JSON.stringify(lastSyncedPayload)) return;
+        }
         lastSyncedPayload = clone(payload);
         cb.onRemoteData && cb.onRemoteData(payload);
       }
@@ -101,6 +116,7 @@ window.Sync = (function () {
       fail(err);
     }
   }
+  function pullNow() { return pullRemote(true); }
 
   function subscribeRealtime() {
     unsubscribeRealtime();
@@ -109,7 +125,7 @@ window.Sync = (function () {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'gy_data', filter: `usuario_id=eq.${currentUser.id}` },
-        pullNow
+        () => pullRemote(false)
       )
       .subscribe();
   }
@@ -125,7 +141,7 @@ window.Sync = (function () {
     lastPushArg = payload;
     if (!sb || !currentUser) return;
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(() => doPush(payload), 500);
+    pushTimer = setTimeout(() => { pushTimer = null; doPush(payload); }, 500);
   }
 
   async function doPush(payload) {
@@ -145,6 +161,7 @@ window.Sync = (function () {
           return;
         }
       }
+      lastPushedJson = JSON.stringify(payload);
       const { error } = await sb
         .from('gy_data')
         .upsert({ usuario_id: currentUser.id, payload, updated_at: new Date().toISOString() });

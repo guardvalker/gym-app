@@ -2044,7 +2044,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.24.0";
+  var APP_VERSION = "1.24.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2246,6 +2246,9 @@ try{
     ],
     "1.24.0": [
       "Backup automático: una vez por semana la app guarda una copia completa de tus datos en Descargas (gym-autobackup-1.json … 5), rotando entre 5 archivos para no acumular. Si pasa algo con los datos de la app, los recuperás con \"Importar\". No genera archivo si no cambió nada desde el último, ni respalda un historial vacío."
+    ],
+    "1.24.1": [
+      "Fix: las ruedas de series, peso y repeticiones ya no se traban ni vuelven a un número anterior al deslizar. Había dos causas: la rueda se \"asentaba\" sola si frenabas un instante sin soltar el dedo, y la sincronización con la nube reaplicaba tus propios cambios (con valores de un instante antes) en medio del gesto."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3861,6 +3864,12 @@ try{
   document.documentElement.style.setProperty("--ui-scale", uiScale);
   document.documentElement.style.setProperty("--wheel-item-h", wheelItemH + "px");
 
+  // Cuántas ruedas tienen un dedo encima ahora (y cuándo se soltó la última):
+  // los datos que llegan de la nube no se aplican en medio de un gesto, porque
+  // reconstruyen las ruedas con el valor que traen.
+  var wheelsTouching = 0, wheelLastTouchEnd = 0;
+  function wheelsBusy(){ return wheelsTouching > 0 || Date.now() - wheelLastTouchEnd < 1500; }
+
   function buildWheel(opts){
     var values = [];
     for(var v = opts.min; v <= opts.max; v += opts.step){
@@ -3910,19 +3919,42 @@ try{
     // cuando cambia el alto de los ítems, reposiciona en el mismo valor
     wrap._relayout = function(){ viewport.scrollTop = activeIdx * wheelItemH; };
 
+    // Mientras el dedo está apoyado NO se asienta ni se guarda nada: antes,
+    // si uno frenaba un instante sin soltar (120 ms sin eventos de scroll), el
+    // timer se disparaba a mitad del gesto, forzaba un scrollTo al ítem más
+    // cercano y la rueda "se trababa" o volvía a un número anterior. Recién
+    // al soltar (y terminar la inercia) se lee el valor.
+    var touching = false;
     var scrollTimer = null;
+    function settleWheel(){
+      if(touching) return;
+      var idx = Math.round(viewport.scrollTop / wheelItemH);
+      idx = Math.max(0, Math.min(idx, values.length - 1));
+      // tolerancia de 1px: en pantallas de densidad fraccionaria scrollTop
+      // nunca es exactamente idx*alto y el scrollTo corregía en bucle,
+      // cortando la inercia del dedo.
+      if(Math.abs(viewport.scrollTop - idx * wheelItemH) > 1){
+        viewport.scrollTo({ top: idx * wheelItemH, behavior:"auto" });
+      }
+      setActive(idx);
+      if(values[idx] !== lastValue){ lastValue = values[idx]; opts.onChange(values[idx]); }
+    }
+    var lastValue = values[initialIdx];
     viewport.addEventListener("scroll", function(){
       if(scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(function(){
-        var idx = Math.round(viewport.scrollTop / wheelItemH);
-        idx = Math.max(0, Math.min(idx, values.length - 1));
-        if(viewport.scrollTop !== idx * wheelItemH){
-          viewport.scrollTo({ top: idx * wheelItemH, behavior:"auto" });
-        }
-        setActive(idx);
-        opts.onChange(values[idx]);
-      }, 120);
+      scrollTimer = setTimeout(settleWheel, 150);
     });
+    viewport.addEventListener("touchstart", function(){ touching = true; wheelsTouching++; }, { passive:true });
+    function wheelTouchEnd(){
+      if(!touching) return;
+      touching = false;
+      wheelsTouching = Math.max(0, wheelsTouching - 1);
+      wheelLastTouchEnd = Date.now();
+      if(scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(settleWheel, 150);
+    }
+    viewport.addEventListener("touchend", wheelTouchEnd, { passive:true });
+    viewport.addEventListener("touchcancel", wheelTouchEnd, { passive:true });
 
     return wrap;
   }
@@ -5589,6 +5621,9 @@ try{
     window.Sync.init({
       onAuthChange: function(){ renderAccountModal(); },
       onRemoteData: function(payload){
+        // Si el usuario está moviendo una rueda no se pisa lo que está
+        // editando; su cambio se sube igual y gana (ver Sync.pullRemote).
+        if(wheelsBusy()) return;
         applyRemoteData(payload);
         document.getElementById("accountSyncStatus").className = "sync-status ok";
         document.getElementById("accountSyncStatusText").textContent = "Sincronizado";
