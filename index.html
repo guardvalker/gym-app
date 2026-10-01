@@ -4878,6 +4878,7 @@ try{
     var variant = (data.groupVariants || []).filter(function(v){ return v.id === log.dayId; })[0];
     if(variant) return variant.label;
     if(DAYS.some(function(d){ return d.id === log.dayId; })) return "Original";
+    if(String(log.dayId).indexOf("_v_") !== -1) return "Importado"; // versión importada ya borrada
     if(/\(importado\)/i.test(log.dayLabel || "")) return "Importado";
     var custom = (data.customDays || []).filter(function(d){ return d.id === log.dayId; })[0];
     if(custom && /\(importado\)/i.test(custom.label)) return "Importado";
