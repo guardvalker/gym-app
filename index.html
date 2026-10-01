@@ -2044,7 +2044,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.23.2";
+  var APP_VERSION = "1.24.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2243,6 +2243,9 @@ try{
     "1.23.2": [
       "La sincronización ahora te avisa en pantalla cuando falla, en vez de fallar en silencio.",
       "Protección extra: un dispositivo con el historial vacío ya no puede pisar los registros que tenés guardados en la nube; en ese caso los descarga."
+    ],
+    "1.24.0": [
+      "Backup automático: una vez por semana la app guarda una copia completa de tus datos en Descargas (gym-autobackup-1.json … 5), rotando entre 5 archivos para no acumular. Si pasa algo con los datos de la app, los recuperás con \"Importar\". No genera archivo si no cambió nada desde el último, ni respalda un historial vacío."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -5235,6 +5238,58 @@ try{
     closeExportModal();
     showToast("Backup exportado ✓");
   }
+
+  // ---------- Autobackup semanal a Descargas ----------
+  // localStorage se borra junto con "datos de sitio" de Chrome aunque la app
+  // esté instalada, y la sincronización con la nube puede fallar o no estar
+  // activada. Este backup cae como archivo real en Descargas, fuera de esa
+  // categoría. Mismo formato que "Todo (copia completa)", así que se
+  // reimporta igual con "Importar". Una vez por semana, rotando entre 5
+  // archivos (gym-autobackup-1..5.json) para que Descargas no acumule uno
+  // nuevo por cada backup. Ojo: si el navegador pregunta dónde guardar o no
+  // sobrescribe nombres repetidos, pueden aparecer como "(1)", "(2)", etc.
+  var AUTO_BACKUP_KEY = STORAGE_KEY + "-autobackup";
+  var AUTO_BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+  var AUTO_BACKUP_SLOT_COUNT = 5;
+
+  function readAutoBackupMeta(){
+    try{
+      var m = JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY) || "null");
+      if(m && typeof m === "object") return m;
+    }catch(e){}
+    return { ts: 0, slot: 0, size: -1 };
+  }
+
+  function maybeAutoBackup(){
+    // Nunca respaldar un historial vacío: no tiene sentido y, rotando, podría
+    // reemplazar con nada un backup bueno anterior.
+    if(!storageOK || !data || !data.logs || !data.logs.length) return;
+    var meta = readAutoBackupMeta();
+    var now = Date.now();
+    if(now - meta.ts < AUTO_BACKUP_INTERVAL_MS) return;
+    var json = JSON.stringify(data);
+    // Sin cambios desde el último backup: no genera un archivo igual, solo
+    // renueva el plazo de la semana.
+    if(json.length === meta.size && hashString(json) === meta.hash){
+      try{ localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ ts: now, slot: meta.slot, size: meta.size, hash: meta.hash })); }catch(e){}
+      return;
+    }
+    var slot = ((meta.slot || 0) % AUTO_BACKUP_SLOT_COUNT) + 1;
+    downloadJSON(data, "gym-autobackup-" + slot + ".json");
+    try{ localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ ts: now, slot: slot, size: json.length, hash: hashString(json) })); }catch(e){}
+    showToast("Backup automático guardado en Descargas");
+  }
+
+  function hashString(str){
+    var h = 5381;
+    for(var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return h;
+  }
+
+  // Al abrir la app (con un respiro para no competir con el primer render) y
+  // cada hora por si queda abierta varios días.
+  setTimeout(maybeAutoBackup, 5000);
+  setInterval(maybeAutoBackup, 60 * 60 * 1000);
 
   // Copia acotada a un solo día/grupo: mismo formato que el backup completo
   // (así se puede reimportar igual con "Importar"), pero con la plantilla de
