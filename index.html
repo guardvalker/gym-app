@@ -2044,7 +2044,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.23.0";
+  var APP_VERSION = "1.23.1";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2236,6 +2236,9 @@ try{
       "Deslizá el ejercicio hacia arriba para marcarlo como hecho y hacia abajo para desmarcarlo. Funciona sobre la tarjeta con el nombre y los cuerpos, y sobre la tarjeta de series/peso/repeticiones (menos sobre las ruedas, que siguen sirviendo para cambiar el valor).",
       "Mientras arrastrás, la tarjeta te sigue un poco y aparece un círculo con una tilde (o una X si vas a desmarcar) que se va llenando; al soltar, el círculo vuela en el sentido del gesto, las letras del nombre hacen la onda de \"Hechos\" y la tarjeta suelta un aro. Si deslizás hacia el lado que no cambia nada (arriba en uno ya hecho), la tarjeta solo se estira y vuelve.",
       "El nombre del ejercicio hecho ahora se ve en el color del grupo."
+    ],
+    "1.23.1": [
+      "Cada app de BONA ahora guarda su propia sesión (antes compartían una sola). Vas a tener que iniciar sesión una vez más; usá el mismo email de siempre y tus datos están como los dejaste."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
