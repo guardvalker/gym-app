@@ -139,17 +139,7 @@
   main{ padding:12px 16px; max-width:640px; margin:0 auto; }
   /* nombre del grupo/día ("Pecho y Tríceps"), a la derecha de "‹ Grupos
      musculares" en la misma fila */
-  .back-row-title{
-    flex:1;
-    min-width:0;
-    text-align:right;
-    font-size:15px;
-    font-weight:700;
-    padding:0 8px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
+  .back-row-spacer{ flex:1; min-width:0; }
 
   /* ---- Body diagram ---- */
   .body-card{
@@ -1757,9 +1747,10 @@ try{
 
   <div class="back-row">
     <button class="back-btn" id="trainBackBtn">‹ Grupos musculares</button>
-    <div class="back-row-title hidden" id="trainDayTitle"></div>
+    <div class="back-row-spacer"></div>
     <div class="variant-switch hidden" id="variantSwitcherWrap">
       <select id="variantSelect" class="variant-select" aria-label="Elegir versión"></select>
+      <button type="button" class="icon-btn variant-replace" id="variantReplaceBtn" title="Reemplazar esta versión con un archivo importado" aria-label="Reemplazar esta versión con un archivo importado"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg></button>
       <button type="button" class="icon-btn variant-delete hidden" id="variantDeleteBtn" title="Eliminar esta versión importada" aria-label="Eliminar esta versión importada"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
     </div>
   </div>
@@ -1850,6 +1841,7 @@ try{
 </main>
 
 <input type="file" id="importFile" accept="application/json" class="hidden">
+<input type="file" id="replaceFile" accept="application/json" class="hidden">
 
 <div class="toast" id="toast"></div>
 
@@ -2102,7 +2094,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.27.0";
+  var APP_VERSION = "1.28.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2324,6 +2316,10 @@ try{
     ],
     "1.27.0": [
       "La app pasa a llamarse BonaGym (antes Mi Rutina) y estrena ícono: un honguito haciendo sentadillas en el rack. Si la tenés en el inicio del celular, el nombre y el ícono nuevos aparecen al volver a agregarla."
+    ],
+    "1.28.0": [
+      "Sacamos el título del grupo (ej. \"Espalda y Bíceps\") de la pantalla de ejercicios: se veía cortado. El nombre ya está en el color y en el selector de versión.",
+      "Nuevo botón \"Reemplazar\" junto al selector Original/Importado: elegís un archivo exportado y pisa los ejercicios de la versión que estás viendo (la original o una importada) con los del archivo, sin crear una versión nueva. El historial no se toca."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3495,15 +3491,6 @@ try{
     var exs = data.templates[currentDay] || [];
     activeExerciseId = exs.length ? exs[0].id : null;
 
-    // El título arriba del diagrama siempre muestra el nombre del grupo/día
-    // "dueño" (ej. "Piernas"), sea cual sea la versión activa — cuál versión
-    // está mirando se indica aparte, en el selector que arma
-    // renderVariantSwitcher() (no acá, para no duplicar la info en dos lados).
-    var origin = originGroupId(dayId);
-    var meta = getDayMeta(origin);
-    var titleEl = document.getElementById("trainDayTitle");
-    titleEl.textContent = meta ? (meta.short || meta.label) : "";
-    titleEl.classList.toggle("hidden", !meta);
     // Solo se puede haber llegado acá desde la pestaña activa de la home,
     // así que homeMode en este instante ya dice de dónde venimos.
     document.getElementById("trainBackBtn").textContent =
@@ -3582,6 +3569,48 @@ try{
       saveData();
       switchDayVariant(origin);
     });
+  });
+
+  // Reemplazar: pisa los ejercicios de la versión que se está viendo
+  // (la original o una importada) con los de un archivo exportado, sin crear
+  // una versión nueva. El historial no se toca. Del archivo se toma la
+  // versión del mismo grupo muscular (primero la original, si no la primera
+  // importada de ese grupo).
+  document.getElementById("variantReplaceBtn").addEventListener("click", function(){
+    document.getElementById("replaceFile").click();
+  });
+
+  document.getElementById("replaceFile").addEventListener("change", function(ev){
+    var file = ev.target.files[0];
+    if(!file) return;
+    var targetId = currentDay;
+    var origin = originGroupId(targetId);
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var parsed = JSON.parse(reader.result);
+        if(!parsed || typeof parsed !== "object" || !parsed.templates) throw new Error("formato inválido");
+        var sourceKey = null;
+        if(parsed.templates[origin]) sourceKey = origin;
+        else{
+          var v = (parsed.groupVariants || []).filter(function(e){ return e.groupId === origin && parsed.templates[e.id]; })[0];
+          if(v) sourceKey = v.id;
+        }
+        if(!sourceKey){ showToast("El archivo no tiene ejercicios de este grupo"); return; }
+        var meta = getDayMeta(targetId);
+        var name = meta ? meta.label : "esta versión";
+        showConfirm("¿Reemplazar los ejercicios de \"" + name + "\" por los del archivo? Se pierden los ejercicios actuales (el historial ya guardado no se toca).", "Reemplazar", function(){
+          data.templates[targetId] = cloneExercisesWithFreshIds(parsed.templates[sourceKey]);
+          saveData();
+          switchDayVariant(targetId);
+          showToast("Versión reemplazada ✓");
+        });
+      }catch(e){
+        showToast("Archivo inválido");
+      }
+      ev.target.value = "";
+    };
+    reader.readAsText(file);
   });
 
   function renderGroupsView(){
