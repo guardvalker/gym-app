@@ -1,6 +1,6 @@
 {
-  "name": "Mi Rutina de Gym",
-  "short_name": "Rutina",
+  "name": "BonaGym",
+  "short_name": "BonaGym",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

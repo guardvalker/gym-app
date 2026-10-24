@@ -1,4 +1,4 @@
-# Mi Rutina de Gym
+# BonaGym
 
 **App:** https://guardvalker.github.io/gym-app/
 
