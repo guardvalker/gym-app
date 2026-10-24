@@ -43,6 +43,8 @@
     /* un color por grupo muscular, para el ícono corporal de cada tarjeta de la home */
     --group-pecho:#fe640b;
     --group-espalda:#40a02b;
+    --group-biceps:#179299;
+    --group-triceps:#1e66f5;
     --group-piernas:#e64553;
     --group-hombros:#df8e1d;
     --group-corecardio:#dc8a78;
@@ -74,6 +76,8 @@
     --grad-secondary-b:#f2a4ab;
     --group-pecho:#fab387;
     --group-espalda:#a6e3a1;
+    --group-biceps:#94e2d5;
+    --group-triceps:#89b4fa;
     --group-piernas:#eba0ac;
     --group-hombros:#f9e2af;
     --group-corecardio:#f5e0dc;
@@ -2093,7 +2097,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.28.0";
+  var APP_VERSION = "1.29.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2319,6 +2323,10 @@ try{
     "1.28.0": [
       "Sacamos el título del grupo (ej. \"Espalda y Bíceps\") de la pantalla de ejercicios: se veía cortado. El nombre ya está en el color y en el selector de versión.",
       "Nuevo botón \"Reemplazar\" (junto al de borrar, al ver una versión importada): elegís dentro de la app cuál versión (la original u otra importada) querés pisar con los ejercicios de la que estás viendo. No abre archivos y el historial no se toca."
+    ],
+    "1.29.0": [
+      "La pantalla principal ahora tiene los grupos separados: Espalda, Bíceps, Tríceps, Pecho, Piernas, Hombros y Core y Cardio (antes Espalda+Bíceps y Pecho+Tríceps iban juntos). Tus ejercicios ya cargados se repartieron solos según su músculo principal, y el historial viejo queda como estaba.",
+      "Bíceps y Tríceps estrenan color propio (turquesa y azul)."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -2471,19 +2479,23 @@ try{
   }
 
   var EXERCISE_LIBRARY = {
-    "espalda-biceps": [
+    "espalda": [
       mkEx("Jalón al pecho (polea alta)", 3, 13, 45),
       mkEx("Remo sentado en polea", 3, 13, 40),
       mkEx("Remo a un brazo con mancuerna", 3, 20, 16),
-      mkEx("Remo con barra", 3, 20, 50),
+      mkEx("Remo con barra", 3, 20, 50)
+    ],
+    "biceps": [
       mkEx("Curl alternado con mancuernas", 3, 10, 10),
       mkEx("Curl con barra Z", 3, 12, 20)
     ],
-    "pecho-triceps": [
+    "pecho": [
       mkEx("Press de banca", 3, 13, 60),
       mkEx("Press inclinado con mancuernas", 3, 13, 16),
       mkEx("Press plano con mancuernas", 3, 15, 18),
-      mkEx("Pullover con mancuerna", 3, 15, 12),
+      mkEx("Pullover con mancuerna", 3, 15, 12)
+    ],
+    "triceps": [
       mkEx("Extensión de tríceps en polea", 3, 14, 15),
       mkEx("Patada de tríceps con mancuerna", 3, 15, 8)
     ],
@@ -2517,8 +2529,10 @@ try{
   // día, el historial y demás — solo "Espalda alta y Bíceps" es demasiado
   // largo para esa tarjeta.
   var DAYS = [
-    { id:"espalda-biceps", label:"Espalda alta y Bíceps", short:"Espalda y Bíceps" },
-    { id:"pecho-triceps",  label:"Pecho y Tríceps" },
+    { id:"espalda",        label:"Espalda" },
+    { id:"biceps",         label:"Bíceps" },
+    { id:"triceps",        label:"Tríceps" },
+    { id:"pecho",          label:"Pecho" },
     { id:"piernas",        label:"Piernas" },
     { id:"hombros",        label:"Hombros" },
     { id:"core-cardio",    label:"Core y Cardio" }
@@ -2529,6 +2543,11 @@ try{
   // numerada y los acentos de esta pantalla combinen con la tarjeta de la
   // que se vino.
   var GROUP_COLOR_VAR = {
+    "pecho": "--group-pecho",
+    "espalda": "--group-espalda",
+    "biceps": "--group-biceps",
+    "triceps": "--group-triceps",
+    // ids viejos (antes de separar los grupos): solo para logs ya guardados
     "pecho-triceps": "--group-pecho",
     "espalda-biceps": "--group-espalda",
     "piernas": "--group-piernas",
@@ -2600,6 +2619,41 @@ try{
     migratedOnLoad = true;
   }
 
+  // Los grupos combinados "Espalda alta y Bíceps" y "Pecho y Tríceps" se
+  // separaron en cuatro (espalda, biceps, pecho, triceps). A los datos ya
+  // guardados se les reparte cada ejercicio según su músculo principal
+  // (los que no tienen músculos cargados quedan en espalda/pecho). Los logs
+  // históricos con el dayId viejo quedan intactos (guardan su propio label y
+  // ejercicios). Las versiones importadas del grupo viejo pasan a espalda/
+  // pecho. Idempotente: sin las claves viejas no hace nada.
+  var SPLIT_GROUPS = {
+    "espalda-biceps": { main:"espalda", other:"biceps", otherZone:"biceps" },
+    "pecho-triceps":  { main:"pecho",   other:"triceps", otherZone:"triceps" }
+  };
+  function migrateSplitGroups(parsed){
+    if(!parsed || !parsed.templates) return false;
+    var changed = false;
+    Object.keys(SPLIT_GROUPS).forEach(function(oldId){
+      var cfg = SPLIT_GROUPS[oldId];
+      var old = parsed.templates[oldId];
+      if(old){
+        var main = [], other = [];
+        old.forEach(function(ex){
+          var prim = (ex.muscles && ex.muscles.primary) || [];
+          (prim.indexOf(cfg.otherZone) !== -1 ? other : main).push(ex);
+        });
+        if(!parsed.templates[cfg.main]) parsed.templates[cfg.main] = main;
+        if(!parsed.templates[cfg.other]) parsed.templates[cfg.other] = other;
+        delete parsed.templates[oldId];
+        changed = true;
+      }
+      (parsed.groupVariants || []).forEach(function(v){
+        if(v.groupId === oldId){ v.groupId = cfg.main; changed = true; }
+      });
+    });
+    return changed;
+  }
+
   // El campo "intensidad" (baja/media/alta) se reemplazó por un peso en
   // kilos: a los ejercicios ya guardados con el campo viejo se les asigna
   // un peso de arranque según el nivel que tenían (no es el peso real que
@@ -2642,6 +2696,7 @@ try{
       if(raw){
         var parsed = JSON.parse(raw);
         migrateEspaldaBaja(parsed);
+        if(migrateSplitGroups(parsed)) migratedOnLoad = true;
         migrateMuscleZoneIds(parsed);
         migrateIntensityToWeight(parsed);
         ensureCustomDays(parsed);
@@ -3449,14 +3504,10 @@ try{
   // ("views": [front, back]) y buildGroupIcon dibuja un ícono por vista, uno
   // al lado del otro, para que se vean resaltados los dos músculos del día.
   var GROUP_ICONS = {
-    "pecho-triceps":  { views:[
-      { view:"front", zones:["chest"] },
-      { view:"back",  zones:["triceps"] }
-    ], color:"var(--group-pecho)" },
-    "espalda-biceps": { views:[
-      { view:"back",  zones:["lats","traps"] },
-      { view:"front", zones:["biceps"] }
-    ], color:"var(--group-espalda)" },
+    "pecho":          { views:[{ view:"front", zones:["chest"] }], color:"var(--group-pecho)" },
+    "triceps":        { views:[{ view:"back",  zones:["triceps"] }], color:"var(--group-triceps)" },
+    "espalda":        { views:[{ view:"back",  zones:["lats","traps"] }], color:"var(--group-espalda)" },
+    "biceps":         { views:[{ view:"front", zones:["biceps"] }], color:"var(--group-biceps)" },
     "piernas":        { views:[{ view:"front", zones:["quads","adductors"] }], color:"var(--group-piernas)" },
     "hombros":        { views:[{ view:"front", zones:["shoulders-f"] }], color:"var(--group-hombros)" },
     "core-cardio":    { views:[{ view:"front", zones:["abs","obliques"] }], color:"var(--group-corecardio)" }
@@ -5930,6 +5981,7 @@ try{
   function applyRemoteData(payload){
     applyingRemoteUpdate = true;
     data = payload;
+    migrateSplitGroups(data);
     ensureCustomDays(data);
     ensureGroupVariants(data);
     saveData();
