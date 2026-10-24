@@ -1633,6 +1633,45 @@
     color:var(--text-dim); margin:14px 0 2px 0;
   }
   .export-subtitle:first-child{ margin-top:0; }
+
+  /* ---------- Cronómetro / temporizador ---------- */
+  #timerBtn{ position:relative; width:auto; min-width:38px; padding:0 11px; gap:6px; font-variant-numeric:tabular-nums; font-size:13px; font-weight:700; }
+  #timerBtn .timer-btn-time{ display:none; }
+  #timerBtn.running{ border-color:var(--accent); color:var(--accent); }
+  #timerBtn.running .timer-btn-time{ display:inline; }
+  #timerBtn.done{ border-color:var(--danger); color:var(--danger); animation:timerBlink .8s ease-in-out infinite; }
+  #timerBtn.done .timer-btn-time{ display:inline; }
+  @keyframes timerBlink{ 50%{ opacity:.45; } }
+  .switch{ position:relative; flex:0 0 auto; width:46px; height:28px; border-radius:999px; border:1px solid var(--border); background:var(--bg-elev-2); cursor:pointer; padding:0; transition:background .15s, border-color .15s; }
+  .switch::after{ content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--text-dim); transition:transform .18s, background .15s; }
+  .switch[aria-checked="true"]{ background:var(--accent-grad); border-color:transparent; }
+  .switch[aria-checked="true"]::after{ transform:translateX(18px); background:#fff; }
+  .timer-display{ position:relative; margin:18px auto 6px; width:min(260px, 72vw); aspect-ratio:1; display:flex; align-items:center; justify-content:center; }
+  .timer-ring{ position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); }
+  .timer-ring circle{ fill:none; stroke-width:7; }
+  .timer-ring .trk{ stroke:var(--bg-elev-2); }
+  .timer-ring .bar{ stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset .2s linear; }
+  .timer-ring.done .bar{ stroke:var(--danger); }
+  .timer-time{ font-size:46px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.5px; text-align:center; line-height:1; }
+  .timer-time small{ font-size:24px; font-weight:700; color:var(--text-dim); }
+  .timer-sub{ font-size:12px; font-weight:700; color:var(--text-dim); text-align:center; margin-top:6px; text-transform:uppercase; letter-spacing:.6px; }
+  .timer-controls{ display:flex; gap:10px; margin-top:14px; }
+  .timer-controls .btn-primary{ flex:2; }
+  .timer-controls .btn-secondary{ flex:1; }
+  .timer-controls button:disabled{ opacity:.4; }
+  .timer-presets{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:8px; }
+  .timer-chip{ font-family:inherit; font-size:13px; font-weight:700; padding:7px 12px; border-radius:999px; border:1px solid var(--border); background:var(--bg-elev-2); color:var(--text); cursor:pointer; font-variant-numeric:tabular-nums; }
+  .timer-chip:active{ opacity:.8; }
+  .timer-chip.active{ background:var(--accent-grad); border-color:transparent; color:#fff; }
+  .timer-adjust{ display:flex; gap:6px; justify-content:center; margin-top:10px; }
+  .timer-laps{ margin-top:14px; max-height:30vh; overflow-y:auto; border-top:1px solid var(--border); }
+  .timer-lap{ display:flex; justify-content:space-between; gap:10px; padding:9px 4px; border-bottom:1px solid var(--border); font-size:14px; font-variant-numeric:tabular-nums; }
+  .timer-lap .n{ color:var(--text-dim); font-weight:700; min-width:64px; }
+  .timer-lap .t{ font-weight:700; }
+  .timer-lap .tot{ color:var(--text-dim); }
+  .timer-lap.best .t{ color:var(--group-espalda); }
+  .timer-lap.worst .t{ color:var(--danger); }
+  .timer-opts{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:16px; padding-top:12px; border-top:1px solid var(--border); font-size:13.5px; font-weight:700; }
 </style>
 </head>
 <body>
@@ -1731,6 +1770,7 @@ try{
   <div class="header-top">
     <h1><span class="icon-dumbbell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7.5" y1="12" x2="16.5" y2="12"></line><line x1="6" y1="8.5" x2="6" y2="15.5"></line><line x1="18" y1="8.5" x2="18" y2="15.5"></line><rect x="1.5" y="9" width="3.5" height="6" rx="1"></rect><rect x="19" y="9" width="3.5" height="6" rx="1"></rect></svg></span> BonaGym</h1>
     <div class="header-actions">
+      <button class="theme-toggle hidden" id="timerBtn" title="Cronómetro" aria-label="Abrir cronómetro y temporizador"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg><span class="timer-btn-time" id="timerBtnTime"></span></button>
       <button class="theme-toggle" id="historyBtn" title="Historial" aria-label="Ver historial de entrenamientos guardados"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>
       <button class="theme-toggle" id="settingsBtn" title="Ajustes" aria-label="Ajustes"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
     </div>
@@ -1887,6 +1927,16 @@ try{
     </div>
 
     <div class="settings-section">
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">Cronómetro</div>
+          <div class="settings-row-hint">Muestra un botón arriba, junto al calendario, con cronómetro (vueltas) y temporizador de descanso.</div>
+        </div>
+        <button type="button" class="switch" id="timerEnabledSwitch" role="switch" aria-checked="true" aria-label="Activar cronómetro"></button>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <div class="settings-row-label">Cuerpo</div>
       <div class="settings-row-hint">Qué dibujo se usa para mostrar los músculos en toda la app.</div>
       <div class="seg" id="bodyGenderSeg">
@@ -1942,6 +1992,48 @@ try{
     <div class="version-history-scroll">
       <div class="version-history-subtitle">Historial de versiones</div>
       <div id="versionHistory"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="timerOverlay">
+  <div class="modal-sheet" style="max-width:420px;">
+    <div class="modal-head">
+      <div class="modal-title">Cronómetro</div>
+      <button class="icon-btn" id="timerClose">✕</button>
+    </div>
+    <div class="seg" style="margin-top:0;" id="timerTabs">
+      <button type="button" class="seg-btn active" data-tab="sw">Cronómetro</button>
+      <button type="button" class="seg-btn" data-tab="tm">Temporizador</button>
+    </div>
+
+    <div class="timer-display">
+      <svg class="timer-ring" id="timerRing" viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45"></circle><circle class="bar" id="timerBar" cx="50" cy="50" r="45"></circle></svg>
+      <div>
+        <div class="timer-time" id="timerTime">00:00</div>
+        <div class="timer-sub" id="timerSub"></div>
+      </div>
+    </div>
+
+    <div id="timerTmPanel" class="hidden">
+      <div class="timer-presets" id="timerPresets"></div>
+      <div class="timer-adjust" id="timerAdjust">
+        <button type="button" class="timer-chip" data-d="-60">−1 min</button>
+        <button type="button" class="timer-chip" data-d="-15">−15 s</button>
+        <button type="button" class="timer-chip" data-d="15">+15 s</button>
+        <button type="button" class="timer-chip" data-d="60">+1 min</button>
+      </div>
+    </div>
+
+    <div class="timer-controls">
+      <button type="button" class="btn-secondary" id="timerSecBtn">Reiniciar</button>
+      <button type="button" class="btn-primary" id="timerMainBtn">Iniciar</button>
+    </div>
+    <div class="timer-laps hidden" id="timerLaps"></div>
+
+    <div class="timer-opts">
+      <span>Sonido y vibración al terminar</span>
+      <button type="button" class="switch" id="timerAlertSwitch" role="switch" aria-checked="true" aria-label="Sonido y vibración al terminar"></button>
     </div>
   </div>
 </div>
@@ -2097,7 +2189,7 @@ try{
   var STORAGE_KEY = "gymTrackerData_v4";
 
   // subir APP_VERSION y agregar una entrada acá en cada cambio que valga la pena avisar
-  var APP_VERSION = "1.29.0";
+  var APP_VERSION = "1.30.0";
   var CHANGELOG = {
     "1.1.0": [
       "Ahora te avisamos acá cuando la app tiene novedades, en vez de que te enteres por sorpresa."
@@ -2327,6 +2419,11 @@ try{
     "1.29.0": [
       "La pantalla principal ahora tiene los grupos separados: Espalda, Bíceps, Tríceps, Pecho, Piernas, Hombros y Core y Cardio (antes Espalda+Bíceps y Pecho+Tríceps iban juntos). Tus ejercicios ya cargados se repartieron solos según su músculo principal, y el historial viejo queda como estaba.",
       "Bíceps y Tríceps estrenan color propio (turquesa y azul)."
+    ],
+    "1.30.0": [
+      "Nuevo cronómetro arriba, al lado del calendario: tiene un cronómetro con vueltas (marca la más rápida y la más lenta) y un temporizador de descanso con atajos de 30 s a 5 min y ajustes de ±15 s / ±1 min.",
+      "Sigue corriendo aunque cierres la hoja o apagues la pantalla: el botón de arriba muestra el tiempo en vivo y, al terminar el temporizador, suena y vibra (se puede apagar).",
+      "Se puede activar o desactivar desde Ajustes → Cronómetro."
     ]
   };
   var SEEN_VERSION_KEY = "gymTrackerSeenVersion_v1";
@@ -3248,6 +3345,252 @@ try{
   document.getElementById("settingsOverlay").addEventListener("click", function(ev){
     if(ev.target === this) closeSettingsModal();
   });
+
+  // ---------- Cronómetro / temporizador ----------
+  // Dos modos en una hoja: cronómetro con vueltas y temporizador de descanso.
+  // El estado guarda marcas de tiempo (no un contador), así sigue corriendo
+  // con la hoja cerrada, con la pantalla apagada o tras recargar la app.
+  // Se activa/desactiva en Ajustes (gymTrackerTimerEnabled_v1, por dispositivo).
+  var TIMER_ENABLED_KEY = "gymTrackerTimerEnabled_v1";
+  var TIMER_STATE_KEY = "gymTrackerTimerState_v1";
+  var TIMER_PRESETS = [30, 60, 90, 120, 180, 300];
+  var timerEnabled = true;
+  try{ timerEnabled = localStorage.getItem(TIMER_ENABLED_KEY) !== "0"; }catch(e){}
+  var timerSt = { tab:"sw", alert:true,
+    sw:{ running:false, startedAt:0, base:0, laps:[] },
+    tm:{ running:false, endAt:0, left:90000, total:90000, done:false } };
+  try{
+    var savedT = JSON.parse(localStorage.getItem(TIMER_STATE_KEY) || "null");
+    if(savedT){
+      if(savedT.sw) timerSt.sw = savedT.sw;
+      if(savedT.tm) timerSt.tm = savedT.tm;
+      if(savedT.tab) timerSt.tab = savedT.tab;
+      if(savedT.alert === false) timerSt.alert = false;
+    }
+  }catch(e){}
+  function saveTimerState(){ try{ localStorage.setItem(TIMER_STATE_KEY, JSON.stringify(timerSt)); }catch(e){} }
+
+  var timerAudio = null;
+  function timerBeep(){
+    if(!timerSt.alert) return;
+    try{ if(navigator.vibrate) navigator.vibrate([300,150,300,150,500]); }catch(e){}
+    try{
+      timerAudio = timerAudio || new (window.AudioContext || window.webkitAudioContext)();
+      if(timerAudio.state === "suspended") timerAudio.resume();
+      [0, .35, .7].forEach(function(off){
+        var o = timerAudio.createOscillator(), g = timerAudio.createGain();
+        o.type = "sine"; o.frequency.value = 880;
+        var t0 = timerAudio.currentTime + off;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+        o.connect(g); g.connect(timerAudio.destination);
+        o.start(t0); o.stop(t0 + 0.3);
+      });
+    }catch(e){}
+  }
+
+  function swElapsed(){ var w = timerSt.sw; return w.base + (w.running ? Date.now() - w.startedAt : 0); }
+  function tmLeft(){ var t = timerSt.tm; return t.running ? Math.max(0, t.endAt - Date.now()) : t.left; }
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+  function fmtClock(ms, cs){
+    var total = Math.floor(ms / 1000), h = Math.floor(total / 3600), m = Math.floor(total / 60) % 60, sec = total % 60;
+    var out = (h ? h + ":" + pad2(m) : pad2(m)) + ":" + pad2(sec);
+    if(cs) out += '<small>.' + pad2(Math.floor(ms % 1000 / 10)) + '</small>';
+    return out;
+  }
+  function fmtPreset(sec){ return sec < 60 ? sec + " s" : Math.floor(sec / 60) + ":" + pad2(sec % 60); }
+
+  function timerFinish(){
+    var t = timerSt.tm;
+    t.running = false; t.left = 0; t.done = true;
+    saveTimerState();
+    timerBeep();
+    showToast("⏱ ¡Se terminó el tiempo!");
+    renderTimer();
+  }
+
+  function renderTimerBtn(){
+    var btn = document.getElementById("timerBtn");
+    btn.classList.toggle("hidden", !timerEnabled);
+    if(!timerEnabled) return;
+    var label = null, cls = "";
+    if(timerSt.tm.done) { label = "¡Listo!"; cls = "done"; }
+    else if(timerSt.tm.running){ label = fmtClock(tmLeft()); cls = "running"; }
+    else if(timerSt.sw.running){ label = fmtClock(swElapsed()); cls = "running"; }
+    btn.classList.toggle("running", cls === "running");
+    btn.classList.toggle("done", cls === "done");
+    document.getElementById("timerBtnTime").innerHTML = label || "";
+  }
+
+  var timerOpen = false;
+  function renderTimer(){
+    renderTimerBtn();
+    if(!timerOpen) return;
+    var isSw = timerSt.tab === "sw";
+    document.querySelectorAll("#timerTabs .seg-btn").forEach(function(b){ b.classList.toggle("active", b.dataset.tab === timerSt.tab); });
+    document.getElementById("timerTmPanel").classList.toggle("hidden", isSw);
+    var ring = document.getElementById("timerRing"), bar = document.getElementById("timerBar");
+    var C = 2 * Math.PI * 45;
+    bar.style.strokeDasharray = C;
+    var main = document.getElementById("timerMainBtn"), sec = document.getElementById("timerSecBtn");
+    var timeEl = document.getElementById("timerTime"), sub = document.getElementById("timerSub");
+    if(isSw){
+      var w = timerSt.sw, el = swElapsed();
+      timeEl.innerHTML = fmtClock(el, true);
+      sub.textContent = w.running ? "En marcha" : (el ? "En pausa" : "Listo para empezar");
+      // el aro da una vuelta por minuto
+      bar.style.strokeDashoffset = C * (1 - (el % 60000) / 60000);
+      ring.classList.remove("done");
+      main.textContent = w.running ? "Pausar" : (el ? "Seguir" : "Iniciar");
+      sec.textContent = w.running ? "Vuelta" : "Reiniciar";
+      sec.disabled = !w.running && !el;
+      renderLaps();
+    }else{
+      var t = timerSt.tm, left = tmLeft();
+      timeEl.innerHTML = fmtClock(Math.ceil(left / 1000) * 1000);
+      sub.textContent = t.done ? "¡Terminó!" : t.running ? "Descansando" : (left < t.total ? "En pausa" : "Descanso");
+      bar.style.strokeDashoffset = C * (1 - (t.total ? left / t.total : 0));
+      ring.classList.toggle("done", t.done);
+      main.textContent = t.running ? "Pausar" : (t.done ? "Repetir" : (left < t.total ? "Seguir" : "Iniciar"));
+      sec.textContent = "Reiniciar";
+      sec.disabled = !t.running && !t.done && left === t.total;
+      main.disabled = !t.running && !t.done && left <= 0;
+      document.querySelectorAll("#timerPresets .timer-chip").forEach(function(c){
+        c.classList.toggle("active", Number(c.dataset.s) * 1000 === t.total);
+      });
+      document.getElementById("timerLaps").classList.add("hidden");
+    }
+  }
+
+  function renderLaps(){
+    var wrap = document.getElementById("timerLaps"), laps = timerSt.sw.laps;
+    wrap.classList.toggle("hidden", !laps.length);
+    if(!laps.length){ wrap.innerHTML = ""; return; }
+    var splits = laps.map(function(tot, i){ return tot - (i ? laps[i - 1] : 0); });
+    var best = Math.min.apply(null, splits), worst = Math.max.apply(null, splits);
+    wrap.innerHTML = splits.map(function(sp, i){
+      var cls = laps.length > 1 ? (sp === best ? " best" : sp === worst ? " worst" : "") : "";
+      return '<div class="timer-lap' + cls + '"><span class="n">Vuelta ' + (i + 1) + '</span><span class="t">' + fmtClock(sp, true) + '</span><span class="tot">' + fmtClock(laps[i], true) + '</span></div>';
+    }).reverse().join("");
+  }
+
+  // un solo intervalo mientras algo corre (sin nada corriendo, no gasta batería)
+  var timerTick = null;
+  function ensureTick(){
+    var need = timerSt.sw.running || timerSt.tm.running;
+    if(need && !timerTick){
+      timerTick = setInterval(function(){
+        if(timerSt.tm.running && tmLeft() <= 0) timerFinish();
+        renderTimer();
+        if(!timerSt.sw.running && !timerSt.tm.running){ clearInterval(timerTick); timerTick = null; }
+      }, 50);
+    }
+  }
+
+  function timerMain(){
+    if(timerSt.tab === "sw"){
+      var w = timerSt.sw;
+      if(w.running){ w.base = swElapsed(); w.running = false; }
+      else{ w.startedAt = Date.now(); w.running = true; }
+    }else{
+      var t = timerSt.tm;
+      if(t.running){ t.left = tmLeft(); t.running = false; }
+      else{
+        if(t.done || t.left <= 0){ t.left = t.total; t.done = false; }
+        t.endAt = Date.now() + t.left; t.running = true; t.done = false;
+      }
+    }
+    // el audio solo se puede crear con un toque del usuario
+    try{ timerAudio = timerAudio || new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
+    saveTimerState(); ensureTick(); renderTimer();
+  }
+  function timerSecondary(){
+    if(timerSt.tab === "sw"){
+      var w = timerSt.sw;
+      if(w.running){ w.laps.push(swElapsed()); }
+      else{ w.base = 0; w.laps = []; }
+    }else{
+      var t = timerSt.tm;
+      t.running = false; t.done = false; t.left = t.total;
+    }
+    saveTimerState(); renderTimer();
+  }
+  function setTimerTotal(ms){
+    var t = timerSt.tm;
+    ms = Math.max(5000, Math.min(99 * 60000 + 59000, ms));
+    var wasRunning = t.running;
+    t.total = ms; t.left = ms; t.done = false;
+    if(wasRunning) t.endAt = Date.now() + ms;
+    saveTimerState(); renderTimer();
+  }
+
+  function openTimerModal(){
+    timerOpen = true;
+    if(timerSt.tm.done){ timerSt.tm.done = false; saveTimerState(); }
+    document.getElementById("timerOverlay").classList.remove("hidden");
+    pushModalState();
+    renderTimer();
+  }
+  function closeTimerModal(){ history.back(); }
+
+  function renderTimerSwitches(){
+    var on = document.getElementById("timerEnabledSwitch");
+    on.setAttribute("aria-checked", timerEnabled ? "true" : "false");
+    document.getElementById("timerAlertSwitch").setAttribute("aria-checked", timerSt.alert ? "true" : "false");
+  }
+
+  var presetWrap = document.getElementById("timerPresets");
+  TIMER_PRESETS.forEach(function(sec){
+    var c = document.createElement("button");
+    c.type = "button"; c.className = "timer-chip"; c.dataset.s = sec; c.textContent = fmtPreset(sec);
+    c.addEventListener("click", function(){ setTimerTotal(sec * 1000); });
+    presetWrap.appendChild(c);
+  });
+  document.querySelectorAll("#timerAdjust .timer-chip").forEach(function(c){
+    c.addEventListener("click", function(){
+      var t = timerSt.tm, d = Number(c.dataset.d) * 1000;
+      if(t.running){ t.endAt = Math.max(Date.now() + 1000, t.endAt + d); t.total = Math.max(5000, t.total + d); saveTimerState(); renderTimer(); }
+      else setTimerTotal(t.total + d);
+    });
+  });
+  document.querySelectorAll("#timerTabs .seg-btn").forEach(function(b){
+    b.addEventListener("click", function(){ timerSt.tab = b.dataset.tab; saveTimerState(); renderTimer(); });
+  });
+  document.getElementById("timerMainBtn").addEventListener("click", timerMain);
+  document.getElementById("timerSecBtn").addEventListener("click", timerSecondary);
+  document.getElementById("timerBtn").addEventListener("click", openTimerModal);
+  document.getElementById("timerClose").addEventListener("click", closeTimerModal);
+  document.getElementById("timerOverlay").addEventListener("click", function(ev){
+    if(ev.target === this) closeTimerModal();
+  });
+  document.getElementById("timerAlertSwitch").addEventListener("click", function(){
+    timerSt.alert = !timerSt.alert; saveTimerState(); renderTimerSwitches();
+    if(timerSt.alert) timerBeep();
+  });
+  document.getElementById("timerEnabledSwitch").addEventListener("click", function(){
+    timerEnabled = !timerEnabled;
+    try{ localStorage.setItem(TIMER_ENABLED_KEY, timerEnabled ? "1" : "0"); }catch(e){}
+    if(!timerEnabled){
+      // apagarlo también frena lo que estuviera corriendo
+      timerSt.sw = { running:false, startedAt:0, base:0, laps:[] };
+      timerSt.tm.running = false; timerSt.tm.done = false; timerSt.tm.left = timerSt.tm.total;
+      saveTimerState();
+    }
+    renderTimerSwitches(); renderTimer();
+  });
+  // al volver a la app (pantalla apagada, otra app) revisa si el tiempo ya pasó
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden) return;
+    if(timerSt.tm.running && tmLeft() <= 0) timerFinish();
+    renderTimer(); ensureTick();
+  });
+  // el overlay se cierra desde popstate/closeTopModal: se detecta con un observer
+  new MutationObserver(function(){
+    timerOpen = !document.getElementById("timerOverlay").classList.contains("hidden");
+  }).observe(document.getElementById("timerOverlay"), { attributes:true, attributeFilter:["class"] });
+  if(timerSt.tm.running && tmLeft() <= 0) timerFinish();
+  renderTimerSwitches(); renderTimer(); ensureTick();
 
   // ---------- Color de la app ----------
   // Solo cambia --accent/--accent-2 (botones, acentos, gráficos genéricos):
